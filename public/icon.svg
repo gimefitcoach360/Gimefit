@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#000000"/>
+  <text x="256" y="300" text-anchor="middle" font-family="Bebas Neue, Impact, sans-serif" font-size="190" fill="#FFFFFF" letter-spacing="4">G<tspan fill="#A855F7">F</tspan></text>
+  <rect x="136" y="350" width="240" height="14" rx="7" fill="#A855F7"/>
+</svg>
