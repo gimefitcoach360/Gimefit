@@ -12,7 +12,11 @@ export default function Login() {
   async function enviar(e) {
     e.preventDefault()
     setError(''); setEnviando(true)
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: pass })
+    // La alumna puede escribir solo "valentina" y se completa con @gimefit.com
+    const usuario = email.trim().toLowerCase()
+    const { error } = await supabase.auth.signInWithPassword({
+      email: usuario.includes('@') ? usuario : `${usuario}@gimefit.com`, password: pass,
+    })
     if (error) setError(traducir(error.message))
     setEnviando(false)
   }
@@ -30,8 +34,8 @@ export default function Login() {
         <div className="stack" style={{ gap: 14 }}>
           <div className="field">
             <label htmlFor="email">Usuario</label>
-            <input id="email" className="input" type="email" required value={email} onChange={e => setEmail(e.target.value)}
-                   autoComplete="username" autoCapitalize="none" placeholder="tunombre@gimefit.com" />
+            <input id="email" className="input" type="text" required value={email} onChange={e => setEmail(e.target.value)}
+                   autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="tu usuario" />
           </div>
           <div className="field">
             <label htmlFor="pass">Contraseña</label>
