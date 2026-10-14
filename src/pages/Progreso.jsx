@@ -6,6 +6,7 @@ import { useAuth } from '../auth'
 import { useFaseActual } from '../lib/useFaseActual'
 import { FASES, hoyAR } from '../lib/constantes'
 import { Cargando, Chip, Header } from '../components/ui'
+import Medidas from '../components/Medidas'
 
 export default function Progreso() {
   const { user } = useAuth()
@@ -152,6 +153,7 @@ export default function Progreso() {
           })}
           <div className="muted" style={{ fontSize: 14 }}>Energía promedio de los últimos 7 días: <b style={{ color: 'var(--violet-soft)' }}>{energia}{energia !== '—' && ' / 5'}</b></div>
         </section>
+        <Medidas />
       </div>
     </>
   )

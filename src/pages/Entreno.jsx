@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, LogOut, PlayCircle } from 'lucide-react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth'
 import { FASES, SENSACIONES } from '../lib/constantes'
 import { Cargando, CheckBtn, Chip, DonePill, Header } from '../components/ui'
+import Avisos from '../components/Avisos'
+import TimerDescanso from '../components/TimerDescanso'
 
 const clave = (ejId, n) => `${ejId}|${n}`
 const aNumero = v => (v === '' || v == null ? null : Number(String(v).replace(',', '.')))
@@ -20,6 +22,8 @@ export default function Entreno() {
   const [terminado, setTerminado] = useState(null)  // resumen al terminar
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
+  const [descanso, setDescanso] = useState(null)   // { segundos, id }
+  const cerrarDescanso = useCallback(() => setDescanso(null), [])
 
   // 1. Al entrar: todos los días + cuáles están hechos + el primero sin completar
   useEffect(() => {
@@ -90,6 +94,7 @@ export default function Entreno() {
     if (nuevo.hecho && (nuevo.reps === '' || nuevo.reps == null)) nuevo.reps = ej.reps_objetivo
     setSeries(s => ({ ...s, [clave(ej.id, n)]: nuevo }))
     guardar(ej, n, nuevo)
+    if (nuevo.hecho) setDescanso({ segundos: ej.descanso_seg || 60, id: Date.now() })
   }
 
   async function terminar() {
@@ -124,7 +129,7 @@ export default function Entreno() {
     return (
       <>
         <Header kicker={`Hola, ${perfil?.nombre || ''}`} right={salirBtn} title="Entreno" />
-        <div className="body"><div className="notice">Gime todavía no cargó tu rutina. Cuando la cargue, la vas a ver acá.</div></div>
+        <div className="body"><Avisos /><div className="notice">Gime todavía no cargó tu rutina. Cuando la cargue, la vas a ver acá.</div></div>
       </>
     )
   }
@@ -194,6 +199,7 @@ export default function Entreno() {
       </Header>
 
       <div className="body">
+        <Avisos />
         {ejercicios.map(ej => {
           const filas = Array.from({ length: ej.series }, (_, i) => i + 1)
           const completo = filas.every(n => fila(ej, n).hecho)
@@ -202,7 +208,7 @@ export default function Entreno() {
               <div className="between" style={{ alignItems: 'flex-start' }}>
                 <div>
                   <h2 className="card__name">{ej.nombre}</h2>
-                  <div className="muted">Objetivo {ej.series} × {ej.reps_objetivo}</div>
+                  <div className="muted">Objetivo {ej.series} × {ej.reps_objetivo} · descanso {ej.descanso_seg || 60} s</div>
                 </div>
                 {completo ? <span className="badge">COMPLETO</span> : ej.video_url ? (
                   <a className="icon-btn" href={ej.video_url} target="_blank" rel="noreferrer" aria-label={`Ver video de ${ej.nombre}`} style={{ color: 'var(--violet-soft)' }}>
@@ -252,6 +258,7 @@ export default function Entreno() {
           </>
         )}
       </div>
+      <TimerDescanso inicio={descanso} onCerrar={cerrarDescanso} />
     </>
   )
 }

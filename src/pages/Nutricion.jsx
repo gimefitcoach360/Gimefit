@@ -3,7 +3,7 @@ import { Droplet } from 'lucide-react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth'
 import { useFaseActual } from '../lib/useFaseActual'
-import { COMIDAS, FASES, GRUPOS, HAMBRE, VASOS_OBJETIVO, diaSemanaAR, hoyAR } from '../lib/constantes'
+import { COMIDAS, DIAS_SEMANA, FASES, GRUPOS, HAMBRE, VASOS_OBJETIVO, diaSemanaAR, hoyAR } from '../lib/constantes'
 import { Cargando, CheckBtn, Chip, Header } from '../components/ui'
 
 export default function Nutricion() {
@@ -19,6 +19,7 @@ export default function Nutricion() {
   const [error, setError] = useState('')
   const hoy = hoyAR()
   const diaHoy = diaSemanaAR()
+  const [diaVista, setDiaVista] = useState(diaHoy)   // modo 'por día': qué día está mirando
 
   useEffect(() => {
     if (!pos) return
@@ -49,7 +50,7 @@ export default function Nutricion() {
 
   const modo = plan?.modo
   const itemsDe = comida => opciones.filter(o => o.comida === comida &&
-    (modo === 'por_dia' ? o.dia_semana === diaHoy : o.dia_semana == null))
+    (modo === 'por_dia' ? o.dia_semana === diaVista : o.dia_semana == null))
 
   async function tomarAgua(n) {
     const nuevo = vasos === n ? n - 1 : n
@@ -62,7 +63,7 @@ export default function Nutricion() {
   function abrir(comida) {
     const items = itemsDe(comida)
     setAbierta(comida)
-    setBorrador({ opcion_id: items.length === 1 ? items[0].id : null, hambre: null })
+    setBorrador({ opcion_id: items.length === 1 ? items[0].id : null, hambre: null, alimentos: [] })
   }
 
   async function confirmar(comida) {
@@ -70,6 +71,7 @@ export default function Nutricion() {
     const { data, error } = await supabase.from('registros_comida').upsert({
       alumna_id: user.id, fecha: hoy, comida,
       opcion_id: borrador.opcion_id, hambre: borrador.hambre, cumplida: true,
+      detalle: borrador.alimentos?.length ? borrador.alimentos.join(', ') : null,
     }, { onConflict: 'alumna_id,fecha,comida' }).select().single()
     if (error) return setError('No se pudo guardar la comida. Probá de nuevo.')
     setRegistros(r => ({ ...r, [comida]: data }))
@@ -79,7 +81,7 @@ export default function Nutricion() {
   async function desmarcar(comida) {
     const reg = registros[comida]
     const { data, error } = await supabase.from('registros_comida')
-      .update({ cumplida: false, hambre: null, opcion_id: null }).eq('id', reg.id).select().single()
+      .update({ cumplida: false, hambre: null, opcion_id: null, detalle: null }).eq('id', reg.id).select().single()
     if (error) return setError('No se pudo desmarcar.')
     setRegistros(r => ({ ...r, [comida]: data }))
   }
@@ -134,8 +136,26 @@ export default function Nutricion() {
           </section>
         )}
 
+        {modo === 'por_dia' && (
+          <div className="stack" style={{ gap: 6 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 4 }} role="group" aria-label="Día de la semana">
+              {DIAS_SEMANA.map((n, i) => {
+                const d = i + 1
+                return (
+                  <button key={n} className={'tab' + (d === diaVista ? ' tab--on' : '')} aria-pressed={d === diaVista}
+                          aria-label={n + (d === diaHoy ? ' (hoy)' : '')} onClick={() => { setDiaVista(d); setAbierta(null) }}
+                          style={d === diaHoy && d !== diaVista ? { borderColor: 'var(--violet)' } : undefined}>{n[0]}</button>
+                )
+              })}
+            </div>
+            {diaVista !== diaHoy && (
+              <div className="muted">Estás viendo el plan del {DIAS_SEMANA[diaVista - 1].toLowerCase()}. Las comidas se marcan el mismo día.</div>
+            )}
+          </div>
+        )}
+
         {plan && (
-          <div className="between muted" style={{ padding: '0 2px' }}><span>Comidas</span><span>{cumplidas} / 4 cumplidas</span></div>
+          <div className="between muted" style={{ padding: '0 2px' }}><span>Comidas de hoy</span><span>{cumplidas} / 4 cumplidas</span></div>
         )}
 
         {plan && COMIDAS.map(c => {
@@ -158,8 +178,10 @@ export default function Nutricion() {
                     </div>
                   ))}
                 </div>
-                <CheckBtn on={hecha} label={hecha ? `Desmarcar ${c.label}` : `Marcar ${c.label} como cumplida`}
-                          onClick={() => (hecha ? desmarcar(c.id) : pendiente ? setAbierta(null) : abrir(c.id))} />
+                {(modo !== 'por_dia' || diaVista === diaHoy) && (
+                  <CheckBtn on={hecha} label={hecha ? `Desmarcar ${c.label}` : `Marcar ${c.label} como cumplida`}
+                            onClick={() => (hecha ? desmarcar(c.id) : pendiente ? setAbierta(null) : abrir(c.id))} />
+                )}
               </div>
 
               {pendiente && (
@@ -174,6 +196,29 @@ export default function Nutricion() {
                           </Chip>
                         ))}
                       </div>
+                    </>
+                  )}
+                  {modo === 'pautas' && pautas.some(p => p.alimentos.length) && (
+                    <>
+                      <div style={{ fontSize: 14, fontWeight: 700 }}>¿Qué usaste? <span className="faint">Opcional</span></div>
+                      {GRUPOS.map(g => {
+                        const pa = pautas.find(x => x.grupo === g.id)
+                        if (!pa?.alimentos.length) return null
+                        return (
+                          <div key={g.id} className="stack" style={{ gap: 6 }}>
+                            <span className="label">{g.label}</span>
+                            <div className="wrap" style={{ gap: 6 }}>
+                              {pa.alimentos.map(a => {
+                                const on = borrador.alimentos?.includes(a)
+                                return (
+                                  <Chip key={a} on={on} style={{ minHeight: 38, padding: '0 12px', fontSize: 13 }}
+                                        onClick={() => setBorrador(b => ({ ...b, alimentos: on ? b.alimentos.filter(x => x !== a) : [...(b.alimentos || []), a] }))}>{a}</Chip>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </>
                   )}
                   <div style={{ fontSize: 14, fontWeight: 700 }}>¿Qué hambre tenías?</div>
@@ -195,6 +240,7 @@ export default function Nutricion() {
                 <div className="muted">
                   Hambre: <b style={{ color: 'var(--violet-soft)' }}>{HAMBRE.find(h => h.id === reg.hambre)?.label || '—'}</b>
                   {reg.opcion_id && items.length > 1 && <> · Opción {items.findIndex(o => o.id === reg.opcion_id) + 1}</>}
+                  {reg.detalle && <> · {reg.detalle}</>}
                 </div>
               )}
             </section>

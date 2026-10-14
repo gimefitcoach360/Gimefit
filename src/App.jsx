@@ -10,6 +10,7 @@ import Coaching from './pages/Coaching'
 const Progreso = lazy(() => import('./pages/Progreso'))
 const AdminHome = lazy(() => import('./pages/admin/AdminHome'))
 const AdminRutina = lazy(() => import('./pages/admin/AdminRutina'))
+const AdminAlumna = lazy(() => import('./pages/admin/AdminAlumna'))
 const AdminComidas = lazy(() => import('./pages/admin/AdminComidas'))
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
         <Suspense fallback={<Cargando />}>
         <Routes>
           <Route path="/admin" element={<AdminHome />} />
+          <Route path="/admin/alumna/:id" element={<AdminAlumna />} />
           <Route path="/admin/alumna/:id/rutina" element={<AdminRutina />} />
           <Route path="/admin/alumna/:id/comidas" element={<AdminComidas />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />

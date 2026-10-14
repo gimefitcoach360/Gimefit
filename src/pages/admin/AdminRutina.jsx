@@ -6,7 +6,7 @@ import { FASES } from '../../lib/constantes'
 import { Cargando, Header } from '../../components/ui'
 
 const SEMANAS = [1, 2, 3, 4]
-const ejVacio = () => ({ nombre: '', series: 3, reps_objetivo: 12, video_url: '' })
+const ejVacio = () => ({ nombre: '', series: 3, reps_objetivo: 12, descanso_seg: 60, video_url: '' })
 
 /**
  * Rutina del mes: Gime carga los días UNA vez por fase y se copian a las 4 semanas.
@@ -124,7 +124,7 @@ export default function AdminRutina() {
 
     const filas = validos.map((e, i) => ({
       orden: i + 1, nombre: e.nombre.trim(), series: Number(e.series),
-      reps_objetivo: Number(e.reps_objetivo), video_url: e.video_url.trim() || null,
+      reps_objetivo: Number(e.reps_objetivo), descanso_seg: Number(e.descanso_seg) || 60, video_url: e.video_url.trim() || null,
     }))
 
     setGuardando(true)
@@ -157,7 +157,7 @@ export default function AdminRutina() {
       for (const n of numerosMes) {
         const base = dias.find(d => d.semana === 1 && d.dia_numero === n) || dias.find(d => d.dia_numero === n)
         const { data: ejs } = await supabase.from('rutina_ejercicios')
-          .select('orden, nombre, series, reps_objetivo, video_url').eq('dia_id', base.id).order('orden')
+          .select('orden, nombre, series, reps_objetivo, descanso_seg, video_url').eq('dia_id', base.id).order('orden')
         diasPlantilla.push({ dia_numero: n, nombre: base.nombre, ejercicios: ejs || [] })
       }
       const fila = { nombre: existe ? existe.nombre : nombre, dias: diasPlantilla }
@@ -185,7 +185,7 @@ export default function AdminRutina() {
       const respetadasTotal = new Set()
       for (const d of p.dias) {
         const filas = (d.ejercicios || []).map((e, i) => ({
-          orden: i + 1, nombre: e.nombre, series: e.series, reps_objetivo: e.reps_objetivo, video_url: e.video_url || null,
+          orden: i + 1, nombre: e.nombre, series: e.series, reps_objetivo: e.reps_objetivo, descanso_seg: e.descanso_seg ?? 60, video_url: e.video_url || null,
         }))
         const { respetadas } = await guardarDiaEnMes(d.dia_numero, d.nombre, filas, dias)
         respetadas.forEach(s => respetadasTotal.add(s))
@@ -302,17 +302,20 @@ export default function AdminRutina() {
                 <Trash2 size={16} aria-hidden="true" />
               </button>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
               <label className="field"><span className="label">Series</span>
                 <input className="input input--sm" type="number" inputMode="numeric" min={1} max={10} value={e.series}
                        onChange={ev => cambiarEj(i, 'series', ev.target.value)} /></label>
               <label className="field"><span className="label">Reps</span>
                 <input className="input input--sm" type="number" inputMode="numeric" min={1} value={e.reps_objetivo}
                        onChange={ev => cambiarEj(i, 'reps_objetivo', ev.target.value)} /></label>
-              <label className="field"><span className="label">Link al video</span>
-                <input className="input input--sm" type="url" placeholder="https://…" value={e.video_url}
-                       onChange={ev => cambiarEj(i, 'video_url', ev.target.value)} /></label>
+              <label className="field"><span className="label">Descanso (s)</span>
+                <input className="input input--sm" type="number" inputMode="numeric" min={10} step={15} value={e.descanso_seg ?? 60}
+                       onChange={ev => cambiarEj(i, 'descanso_seg', ev.target.value)} /></label>
             </div>
+            <label className="field"><span className="label">Link al video (opcional)</span>
+              <input className="input input--sm" type="url" placeholder="https://…" value={e.video_url}
+                     onChange={ev => cambiarEj(i, 'video_url', ev.target.value)} /></label>
           </div>
         ))}
 

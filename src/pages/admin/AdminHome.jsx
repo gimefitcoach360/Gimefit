@@ -5,6 +5,7 @@ import { supabase } from '../../supabase'
 import { useAuth } from '../../auth'
 import { Cargando, Header } from '../../components/ui'
 import { DOMINIO, copiar, generarClave, mensajeAcceso, sugerirUsuario } from '../../lib/claves'
+import { estadoVencimiento } from '../../lib/fechas'
 
 const DIAS_ALERTA = 3
 const DIA_MS = 86400000
@@ -134,7 +135,7 @@ export default function AdminHome() {
       supabase.rpc('actividad_alumnas'),
     ])
     const ultima = Object.fromEntries((act || []).map(a => [a.alumna_id, a.ultima]))
-    const lista = (perfiles || []).map(p => ({ ...p, estado: estadoActividad(ultima[p.id]) }))
+    const lista = (perfiles || []).map(p => ({ ...p, estado: estadoActividad(ultima[p.id]), plan: estadoVencimiento(p.vence) }))
     // Primero las que necesitan atención, después el resto por nombre
     const enAlerta = x => x.estado.nivel === 'alerta'
     lista.sort((a, b) => {
@@ -187,8 +188,11 @@ export default function AdminHome() {
           <section key={a.id} className="card">
             <div className="between" style={{ alignItems: 'flex-start' }}>
               <div style={{ minWidth: 0 }}>
-                <h2 className="card__name">{a.nombre}</h2>
+                <h2 className="card__name"><Link to={`/admin/alumna/${a.id}`} style={{ color: 'var(--text)' }}>{a.nombre}</Link></h2>
                 <div className="muted">Usuario: {(a.email || '').replace(DOMINIO, '')}</div>
+                {a.plan && a.plan.nivel !== 'ok' && (
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#FCA5A5', marginTop: 2 }}>{a.plan.texto}</div>
+                )}
               </div>
               <span style={{ ...PILL[a.estado.nivel], fontSize: 12, fontWeight: 700, borderRadius: 999, padding: '4px 10px', whiteSpace: 'nowrap' }}>
                 {a.estado.nivel === 'alerta' && '⚠ '}{a.estado.texto}
@@ -214,6 +218,7 @@ export default function AdminHome() {
         ))}
 
         <div className="faint" style={{ lineHeight: 1.5 }}>
+          Tocá el nombre de una alumna para ver su ficha completa, mandarle un mensaje o cargar la fecha de vencimiento de su plan.
           Una alumna aparece en alerta cuando pasa {DIAS_ALERTA} días sin registrar nada (entreno, comidas, check-in o actividades).
         </div>
       </div>
