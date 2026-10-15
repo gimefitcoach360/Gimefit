@@ -15,7 +15,8 @@ export function sugerirUsuario(nombre) {
 }
 
 export const DOMINIO = '@gimefit.com'
-export const APP_URL = 'https://gimefit.vercel.app'
+// Usa la dirección desde la que entra Gime (gimefit.vercel.app hoy, el dominio propio después)
+export const APP_URL = typeof window !== 'undefined' ? window.location.origin : 'https://gimefit.vercel.app'
 
 export function mensajeAcceso(nombre, usuario, clave) {
   return `¡Hola ${nombre}! Ya tenés tu acceso a Gimefit 💜\n\nEntrá en ${APP_URL}\nUsuario: ${usuario.replace(DOMINIO, '')}\nContraseña: ${clave}\n\nTe recomiendo agregarla a la pantalla de inicio del celu.`
