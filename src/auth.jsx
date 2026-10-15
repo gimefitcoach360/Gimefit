@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { limpiarDatosGuardados } from './lib/offline'
 
 const AuthCtx = createContext(null)
 
@@ -24,7 +25,7 @@ export function AuthProvider({ children }) {
     user: session?.user ?? null,
     perfil,
     cargando: session === undefined || (session && !perfil),
-    salir: () => supabase.auth.signOut(),
+    salir: async () => { await limpiarDatosGuardados(); return supabase.auth.signOut() },
   }
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>
 }

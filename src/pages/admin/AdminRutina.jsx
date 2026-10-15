@@ -29,6 +29,13 @@ export default function AdminRutina() {
   const [plantillaSel, setPlantillaSel] = useState('')
   const [nombrePlantilla, setNombrePlantilla] = useState('')
   const [guardandoPlantilla, setGuardandoPlantilla] = useState(false)
+  const [catalogo, setCatalogo] = useState([])
+
+  const cargarCatalogo = useCallback(async () => {
+    const { data } = await supabase.from('ejercicios_catalogo').select('nombre, video_url').order('nombre')
+    setCatalogo(data || [])
+  }, [])
+  useEffect(() => { cargarCatalogo() }, [cargarCatalogo])
 
   const cargarPlantillas = useCallback(async () => {
     const { data } = await supabase.from('plantillas').select('*').order('nombre')
@@ -71,6 +78,31 @@ export default function AdminRutina() {
 
   const numeros = [...new Set([...dias.map(d => d.dia_numero), diaNum])].sort((a, b) => a - b)
   const cambiarEj = (i, campo, valor) => setEjercicios(l => l.map((e, j) => (j === i ? { ...e, [campo]: valor } : e)))
+  const delCatalogo = nombre => catalogo.find(c => c.nombre.toLowerCase() === nombre.trim().toLowerCase())
+
+  // Al elegir un ejercicio del catálogo, se completa el video solo.
+  // Si el video lo puso el catálogo y después cambia el nombre, el video acompaña el cambio.
+  function cambiarNombre(i, valor) {
+    const c = delCatalogo(valor)
+    setEjercicios(l => l.map((e, j) => {
+      if (j !== i) return e
+      const libre = !e.video_url || e._auto
+      if (!libre) return { ...e, nombre: valor }
+      return { ...e, nombre: valor, video_url: c?.video_url || '', _auto: !!c?.video_url }
+    }))
+  }
+
+  // Los ejercicios nuevos que se usan en una rutina se suman solos al catálogo
+  async function sumarAlCatalogo(filas) {
+    const vistos = new Set()
+    const nuevos = filas.filter(f => {
+      const k = f.nombre.toLowerCase()
+      if (delCatalogo(f.nombre) || vistos.has(k)) return false
+      vistos.add(k); return true
+    })
+    for (const f of nuevos) await supabase.from('ejercicios_catalogo').insert({ nombre: f.nombre, video_url: f.video_url })
+    if (nuevos.length) cargarCatalogo()
+  }
 
   // ¿La alumna ya empezó este día? (lo completó o cargó alguna serie)
   async function yaEmpezado(diaId) {
@@ -130,6 +162,7 @@ export default function AdminRutina() {
     setGuardando(true)
     try {
       const { actualizadas, respetadas } = await guardarDiaEnMes(diaNum, nombreDia.trim(), filas, dias)
+      sumarAlCatalogo(filas)
       setMsg(respetadas.length
         ? `Día ${diaNum} guardado en las semanas ${actualizadas.join(', ') || '—'}. Las semanas ${respetadas.join(', ')} no se tocaron porque la alumna ya las empezó.`
         : `Día ${diaNum} guardado para todo el mes (semanas 1 a 4).`)
@@ -296,7 +329,8 @@ export default function AdminRutina() {
           <div key={i} className="card" style={{ padding: 12, gap: 10 }}>
             <div className="row">
               <input className="input input--sm" style={{ flex: 1, fontWeight: 700 }} placeholder="Nombre del ejercicio"
-                     aria-label={`Ejercicio ${i + 1}`} value={e.nombre} onChange={ev => cambiarEj(i, 'nombre', ev.target.value)} />
+                     aria-label={`Ejercicio ${i + 1}`} list="catalogo-ej" autoComplete="off"
+                     value={e.nombre} onChange={ev => cambiarNombre(i, ev.target.value)} />
               <button className="icon-btn" aria-label={`Quitar ${e.nombre || 'ejercicio'}`} style={{ background: 'transparent' }}
                       onClick={() => setEjercicios(l => (l.length > 1 ? l.filter((_, j) => j !== i) : [ejVacio()]))}>
                 <Trash2 size={16} aria-hidden="true" />
@@ -315,9 +349,12 @@ export default function AdminRutina() {
             </div>
             <label className="field"><span className="label">Link al video (opcional)</span>
               <input className="input input--sm" type="url" placeholder="https://…" value={e.video_url}
-                     onChange={ev => cambiarEj(i, 'video_url', ev.target.value)} /></label>
+                     onChange={ev => setEjercicios(l => l.map((x, j) => (j === i ? { ...x, video_url: ev.target.value, _auto: false } : x)))} /></label>
           </div>
         ))}
+
+        <datalist id="catalogo-ej">{catalogo.map(c => <option key={c.nombre} value={c.nombre} />)}</datalist>
+        <div className="faint">Empezá a escribir y elegí del <Link to="/admin/ejercicios">catálogo de ejercicios</Link>: el video se agrega solo.</div>
 
         <button className="btn btn--dashed btn--sm" onClick={() => setEjercicios(l => [...l, ejVacio()])}>
           <Plus size={18} aria-hidden="true" />Agregar ejercicio

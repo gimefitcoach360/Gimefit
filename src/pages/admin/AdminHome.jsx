@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, Copy, Dumbbell, KeyRound, LogOut, Plus, RefreshCw, Utensils, X } from 'lucide-react'
+import { AlertTriangle, Copy, Dumbbell, Library, KeyRound, LogOut, Plus, RefreshCw, Utensils, X } from 'lucide-react'
 import { supabase } from '../../supabase'
 import { useAuth } from '../../auth'
 import { Cargando, Header } from '../../components/ui'
@@ -163,6 +163,9 @@ export default function AdminHome() {
             {creando ? <X size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}{creando ? 'Cerrar' : 'Nueva alumna'}
           </button>
         </div>
+        <Link className="btn btn--ghost btn--sm" to="/admin/ejercicios" style={{ textDecoration: 'none' }}>
+          <Library size={16} aria-hidden="true" />Catálogo de ejercicios
+        </Link>
       </Header>
 
       <div className="body" style={{ paddingBottom: 40 }}>

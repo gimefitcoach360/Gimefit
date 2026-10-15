@@ -6,10 +6,16 @@ import { FASES, SENSACIONES } from '../lib/constantes'
 import { Cargando, CheckBtn, Chip, DonePill, Header } from '../components/ui'
 import Avisos from '../components/Avisos'
 import TimerDescanso from '../components/TimerDescanso'
+import { colaDe, encolar, enviarCola } from '../lib/offline'
 
 const clave = (ejId, n) => `${ejId}|${n}`
 const aNumero = v => (v === '' || v == null ? null : Number(String(v).replace(',', '.')))
 const aEntero = v => (v === '' || v == null ? null : parseInt(v, 10))
+const semanaPrograma = d => (d.fase - 1) * 4 + d.semana
+
+/** "8×12 · 8×12 · 10×10" con lo que hizo la vez anterior en ese ejercicio */
+const textoPrevio = p => Object.keys(p).sort((a, b) => a - b)
+  .map(n => `${p[n].peso_kg != null ? Number(p[n].peso_kg).toLocaleString('es-AR') : '–'}×${p[n].reps ?? '–'}`).join(' · ')
 
 export default function Entreno() {
   const { user, perfil, salir } = useAuth()
@@ -23,23 +29,26 @@ export default function Entreno() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [descanso, setDescanso] = useState(null)   // { segundos, id }
+  const [previo, setPrevio] = useState({})          // nombre del ejercicio -> { serie_numero: { peso_kg, reps } }
   const cerrarDescanso = useCallback(() => setDescanso(null), [])
 
   // 1. Al entrar: todos los días + cuáles están hechos + el primero sin completar
   useEffect(() => {
     let vivo = true
     ;(async () => {
-      const [d, c, sig] = await Promise.all([
+      const [d, c] = await Promise.all([
         supabase.from('rutina_dias').select('*').eq('alumna_id', user.id)
           .order('fase').order('semana').order('dia_numero'),
         supabase.from('dias_completados').select('dia_id, sensacion').eq('alumna_id', user.id),
-        supabase.rpc('siguiente_dia'),
       ])
       if (!vivo) return
       const lista = d.data || []
+      // Días terminados, incluidos los que se terminaron sin señal y todavía no se mandaron
+      const h = Object.fromEntries((c.data || []).map(x => [x.dia_id, x]))
+      for (const q of colaDe(user.id, 'dia')) h[q.fila.dia_id] = q.fila
       setDias(lista)
-      setHechos(Object.fromEntries((c.data || []).map(x => [x.dia_id, x])))
-      setVerId(sig.data?.[0]?.id ?? lista[lista.length - 1]?.id ?? null)
+      setHechos(h)
+      setVerId(lista.find(x => !h[x.id])?.id ?? lista[lista.length - 1]?.id ?? null)
     })()
     return () => { vivo = false }
   }, [user.id])
@@ -57,13 +66,44 @@ export default function Entreno() {
       if (!vivo) return
       const mapa = {}
       for (const r of rs || []) mapa[clave(r.ejercicio_id, r.serie_numero)] = { peso_kg: r.peso_kg ?? '', reps: r.reps ?? '', hecho: r.hecho }
+      // Lo cargado sin señal (todavía en el celu) pisa lo que vino de internet
+      const idsSet = new Set(ids)
+      for (const q of colaDe(user.id, 'serie')) {
+        if (idsSet.has(q.fila.ejercicio_id)) mapa[q.clave] = { peso_kg: q.fila.peso_kg ?? '', reps: q.fila.reps ?? '', hecho: q.fila.hecho }
+      }
       setEjercicios(ej || [])
       setSeries(mapa)
       setSensacion(null)
       setError('')
+      setPrevio({})
+      cargarPrevio(ej || [], () => vivo)
     })()
     return () => { vivo = false }
-  }, [verId])
+  }, [verId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // "La vez pasada": lo último que hizo en cada ejercicio (mismo nombre) en una semana anterior
+  async function cargarPrevio(ej, sigueVivo) {
+    const actual = dias?.find(d => d.id === verId)
+    const nombres = [...new Set(ej.map(e => e.nombre))]
+    if (!actual || !nombres.length) return
+    const { data } = await supabase.from('registros_series')
+      .select('serie_numero, peso_kg, reps, rutina_ejercicios!inner(nombre, rutina_dias!inner(fase, semana, dia_numero))')
+      .eq('alumna_id', user.id).eq('hecho', true).in('rutina_ejercicios.nombre', nombres)
+    if (!sigueVivo() || !data) return
+    const tope = semanaPrograma(actual)
+    const mejor = {}   // nombre -> { orden, series }
+    for (const r of data) {
+      const d = r.rutina_ejercicios.rutina_dias
+      const sem = semanaPrograma(d)
+      if (sem >= tope) continue
+      // Gana la semana más reciente; dentro de esa semana, el mismo número de día
+      const orden = sem * 10 + (d.dia_numero === actual.dia_numero ? 1 : 0)
+      const nom = r.rutina_ejercicios.nombre
+      if (!mejor[nom] || orden > mejor[nom].orden) mejor[nom] = { orden, series: {} }
+      if (orden === mejor[nom].orden) mejor[nom].series[r.serie_numero] = { peso_kg: r.peso_kg, reps: r.reps }
+    }
+    setPrevio(Object.fromEntries(Object.entries(mejor).map(([k, v]) => [k, v.series])))
+  }
 
   const dia = dias?.find(d => d.id === verId)
   const semanaDias = useMemo(
@@ -79,19 +119,30 @@ export default function Entreno() {
     setSeries(s => ({ ...s, [clave(ej.id, n)]: { ...fila(ej, n), [campo]: valor } }))
   }
 
-  async function guardar(ej, n, valores = fila(ej, n)) {
-    const { error } = await supabase.from('registros_series').upsert({
-      ejercicio_id: ej.id, serie_numero: n,
-      peso_kg: aNumero(valores.peso_kg), reps: aEntero(valores.reps), hecho: !!valores.hecho,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'ejercicio_id,serie_numero' })
-    if (error) setError('No se pudo guardar una serie. Revisá tu conexión.')
+  // Se guarda primero en el celu y se manda cuando hay señal (ver lib/offline.js)
+  function encolarSerie(ejercicioId, n, valores) {
+    encolar({
+      tipo: 'serie', clave: clave(ejercicioId, n), user: user.id,
+      fila: {
+        ejercicio_id: ejercicioId, serie_numero: n,
+        peso_kg: aNumero(valores.peso_kg), reps: aEntero(valores.reps), hecho: !!valores.hecho,
+        updated_at: new Date().toISOString(),
+      },
+    })
+  }
+
+  function guardar(ej, n, valores = fila(ej, n)) {
+    encolarSerie(ej.id, n, valores)
+    enviarCola(user.id)
   }
 
   function tildar(ej, n) {
     const actual = fila(ej, n)
     const nuevo = { ...actual, hecho: !actual.hecho }
     if (nuevo.hecho && (nuevo.reps === '' || nuevo.reps == null)) nuevo.reps = ej.reps_objetivo
+    // Si no anotó kilos, se toman los de la vez pasada (los que ve de guía en gris)
+    const ant = previo[ej.nombre]?.[n]
+    if (nuevo.hecho && (nuevo.peso_kg === '' || nuevo.peso_kg == null) && ant?.peso_kg != null) nuevo.peso_kg = Number(ant.peso_kg)
     setSeries(s => ({ ...s, [clave(ej.id, n)]: nuevo }))
     guardar(ej, n, nuevo)
     if (nuevo.hecho) setDescanso({ segundos: ej.descanso_seg || 60, id: Date.now() })
@@ -99,23 +150,20 @@ export default function Entreno() {
 
   async function terminar() {
     setGuardando(true); setError('')
-    // Guardamos todo lo cargado, así el mail a Gime va completo
-    const filas = Object.entries(series).map(([k, v]) => {
-      const [ejercicio_id, n] = k.split('|')
-      return { ejercicio_id, serie_numero: Number(n), peso_kg: aNumero(v.peso_kg), reps: aEntero(v.reps), hecho: !!v.hecho, updated_at: new Date().toISOString() }
-    })
-    if (filas.length) {
-      const { error } = await supabase.from('registros_series').upsert(filas, { onConflict: 'ejercicio_id,serie_numero' })
-      if (error) { setGuardando(false); return setError('No se pudo guardar. Probá de nuevo.') }
+    // Todo lo cargado + el día terminado van a la cola; las series salen primero, así el mail a Gime va completo
+    for (const [k, v] of Object.entries(series)) {
+      const [ejercicioId, n] = k.split('|')
+      encolarSerie(ejercicioId, Number(n), v)
     }
-    const { error } = await supabase.from('dias_completados').insert({ dia_id: dia.id, sensacion })
+    encolar({ tipo: 'dia', clave: dia.id, user: user.id, fila: { dia_id: dia.id, sensacion } })
+    const { pendientes, error } = await enviarCola(user.id)
     if (error) { setGuardando(false); return setError('No se pudo terminar el día. Probá de nuevo.') }
 
-    const { data: sig } = await supabase.rpc('siguiente_dia')
+    const nuevosHechos = { ...hechos, [dia.id]: { dia_id: dia.id, sensacion } }
     const volumen = Object.values(series).filter(s => s.hecho)
       .reduce((a, s) => a + (aNumero(s.peso_kg) || 0) * (aEntero(s.reps) || 0), 0)
-    setHechos(h => ({ ...h, [dia.id]: { dia_id: dia.id, sensacion } }))
-    setTerminado({ dia, seriesHechas, volumen, sensacion, siguiente: sig?.[0] || null })
+    setHechos(nuevosHechos)
+    setTerminado({ dia, seriesHechas, volumen, sensacion, siguiente: dias.find(x => !nuevosHechos[x.id]) || null, sinEnviar: pendientes > 0 })
     setGuardando(false)
   }
 
@@ -154,7 +202,9 @@ export default function Entreno() {
           <span className="muted" style={{ fontSize: 14 }}>Cómo te sentiste</span>
           <b style={{ color: 'var(--violet-soft)' }}>{t.sensacion || 'Sin marcar'}</b>
         </div>
-        <div className="muted">Gime ya recibió tu entrenamiento.</div>
+        <div className="muted">{t.sinEnviar
+          ? 'Estás sin señal: tu entrenamiento quedó guardado en el celu y se le manda a Gime solo cuando vuelvas a tener conexión.'
+          : 'Gime ya recibió tu entrenamiento.'}</div>
         {t.siguiente ? (
           <>
             <div className="card card--violet" style={{ gap: 4 }}>
@@ -209,6 +259,11 @@ export default function Entreno() {
                 <div>
                   <h2 className="card__name">{ej.nombre}</h2>
                   <div className="muted">Objetivo {ej.series} × {ej.reps_objetivo} · descanso {ej.descanso_seg || 60} s</div>
+                  {previo[ej.nombre] && (
+                    <div style={{ fontSize: 13, color: 'var(--violet-pale)', marginTop: 2 }}>
+                      La vez pasada <span className="faint">(kg×reps)</span>: {textoPrevio(previo[ej.nombre])}
+                    </div>
+                  )}
                 </div>
                 {completo ? <span className="badge">COMPLETO</span> : ej.video_url ? (
                   <a className="icon-btn" href={ej.video_url} target="_blank" rel="noreferrer" aria-label={`Ver video de ${ej.nombre}`} style={{ color: 'var(--violet-soft)' }}>
@@ -221,10 +276,11 @@ export default function Entreno() {
               </div>
               {filas.map(n => {
                 const f = fila(ej, n)
+                const ant = previo[ej.nombre]?.[n]
                 return (
                   <div key={n} className="sets-grid">
                     <span className="set-n">{n}</span>
-                    <input className="input input--sm" type="number" inputMode="decimal" step="0.5" placeholder="—"
+                    <input className="input input--sm" type="number" inputMode="decimal" step="0.5" placeholder={ant?.peso_kg != null ? String(Number(ant.peso_kg)) : '—'}
                            aria-label={`Peso serie ${n} de ${ej.nombre}`} value={f.peso_kg}
                            onChange={e => cambiar(ej, n, 'peso_kg', e.target.value)} onBlur={() => guardar(ej, n)} />
                     <input className="input input--sm" type="number" inputMode="numeric" placeholder={String(ej.reps_objetivo)}

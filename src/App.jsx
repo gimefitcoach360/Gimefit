@@ -7,11 +7,13 @@ import Login from './pages/Login'
 import Entreno from './pages/Entreno'
 import Nutricion from './pages/Nutricion'
 import Coaching from './pages/Coaching'
+import EstadoConexion from './components/EstadoConexion'
 const Progreso = lazy(() => import('./pages/Progreso'))
 const AdminHome = lazy(() => import('./pages/admin/AdminHome'))
 const AdminRutina = lazy(() => import('./pages/admin/AdminRutina'))
 const AdminAlumna = lazy(() => import('./pages/admin/AdminAlumna'))
 const AdminComidas = lazy(() => import('./pages/admin/AdminComidas'))
+const AdminEjercicios = lazy(() => import('./pages/admin/AdminEjercicios'))
 
 export default function App() {
   const { session, perfil, cargando } = useAuth()
@@ -32,6 +34,7 @@ export default function App() {
         <Suspense fallback={<Cargando />}>
         <Routes>
           <Route path="/admin" element={<AdminHome />} />
+          <Route path="/admin/ejercicios" element={<AdminEjercicios />} />
           <Route path="/admin/alumna/:id" element={<AdminAlumna />} />
           <Route path="/admin/alumna/:id/rutina" element={<AdminRutina />} />
           <Route path="/admin/alumna/:id/comidas" element={<AdminComidas />} />
@@ -44,6 +47,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <EstadoConexion />
       <Suspense fallback={<Cargando />}>
       <Routes>
         <Route path="/entreno" element={<Entreno />} />

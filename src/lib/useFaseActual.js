@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabase'
+import { colaDe } from './offline'
 
 /**
  * Fase y semana en la que está la alumna: la del primer día de rutina sin completar.
  * Si ya completó todo, la del último día cargado. Si no hay rutina, fase 1 semana 1.
+ * (Usa lecturas comunes, así también funciona sin señal con la copia guardada.)
  */
 export function useFaseActual(userId) {
   const [pos, setPos] = useState(null)
@@ -12,13 +14,14 @@ export function useFaseActual(userId) {
     if (!userId) return
     let vivo = true
     ;(async () => {
-      const { data: sig } = await supabase.rpc('siguiente_dia')
-      let p = sig?.[0]
-      if (!p) {
-        const { data: ult } = await supabase.from('rutina_dias').select('fase, semana')
-          .eq('alumna_id', userId).order('fase', { ascending: false }).order('semana', { ascending: false }).limit(1)
-        p = ult?.[0]
-      }
+      const [{ data: dias }, { data: comp }] = await Promise.all([
+        supabase.from('rutina_dias').select('id, fase, semana').eq('alumna_id', userId)
+          .order('fase').order('semana').order('dia_numero'),
+        supabase.from('dias_completados').select('dia_id').eq('alumna_id', userId),
+      ])
+      const hechos = new Set([...(comp || []).map(c => c.dia_id), ...colaDe(userId, 'dia').map(q => q.fila.dia_id)])
+      const lista = dias || []
+      const p = lista.find(d => !hechos.has(d.id)) || lista[lista.length - 1]
       if (vivo) setPos({ fase: p?.fase ?? 1, semana: p?.semana ?? 1, sinRutina: !p })
     })()
     return () => { vivo = false }
