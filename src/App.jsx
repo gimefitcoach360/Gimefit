@@ -8,6 +8,8 @@ import Entreno from './pages/Entreno'
 import Nutricion from './pages/Nutricion'
 import Coaching from './pages/Coaching'
 import EstadoConexion from './components/EstadoConexion'
+import Pausada from './pages/Pausada'
+import { SECCIONES, seccionesDe, tieneAcceso } from './lib/acceso'
 const Progreso = lazy(() => import('./pages/Progreso'))
 const AdminHome = lazy(() => import('./pages/admin/AdminHome'))
 const AdminRutina = lazy(() => import('./pages/admin/AdminRutina'))
@@ -45,20 +47,25 @@ export default function App() {
     )
   }
 
+  // Plan pausado o vencido: no entra a la app
+  if (!tieneAcceso(perfil)) return <div className="app"><Pausada /></div>
+
+  const mias = seccionesDe(perfil)
+  const PAGINAS = { entreno: <Entreno />, nutricion: <Nutricion />, coaching: <Coaching /> }
+  // Al entrar, directo al próximo entrenamiento (o a la primera sección que tenga)
+  const inicio = SECCIONES.find(s => mias.includes(s.id))?.ruta || '/progreso'
+
   return (
     <div className="app">
       <EstadoConexion />
       <Suspense fallback={<Cargando />}>
       <Routes>
-        <Route path="/entreno" element={<Entreno />} />
-        <Route path="/nutricion" element={<Nutricion />} />
-        <Route path="/coaching" element={<Coaching />} />
+        {SECCIONES.filter(s => mias.includes(s.id)).map(s => <Route key={s.id} path={s.ruta} element={PAGINAS[s.id]} />)}
         <Route path="/progreso" element={<Progreso />} />
-        {/* Al entrar, siempre directo al próximo entrenamiento */}
-        <Route path="*" element={<Navigate to="/entreno" replace />} />
+        <Route path="*" element={<Navigate to={inicio} replace />} />
       </Routes>
       </Suspense>
-      <BottomNav />
+      <BottomNav secciones={mias} />
     </div>
   )
 }

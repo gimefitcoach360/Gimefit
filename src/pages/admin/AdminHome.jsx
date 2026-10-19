@@ -6,6 +6,8 @@ import { useAuth } from '../../auth'
 import { Cargando, Header } from '../../components/ui'
 import { DOMINIO, copiar, generarClave, mensajeAcceso, sugerirUsuario } from '../../lib/claves'
 import { estadoVencimiento } from '../../lib/fechas'
+import { tieneAcceso } from '../../lib/acceso'
+import BotonActiva from '../../components/BotonActiva'
 
 const DIAS_ALERTA = 3
 const DIA_MS = 86400000
@@ -136,9 +138,10 @@ export default function AdminHome() {
     ])
     const ultima = Object.fromEntries((act || []).map(a => [a.alumna_id, a.ultima]))
     const lista = (perfiles || []).map(p => ({ ...p, estado: estadoActividad(ultima[p.id]), plan: estadoVencimiento(p.vence) }))
-    // Primero las que necesitan atención, después el resto por nombre
-    const enAlerta = x => x.estado.nivel === 'alerta'
+    // Primero las que necesitan atención, después el resto por nombre; las inactivas, al final
+    const enAlerta = x => tieneAcceso(x) && x.estado.nivel === 'alerta'
     lista.sort((a, b) => {
+      if (tieneAcceso(a) !== tieneAcceso(b)) return tieneAcceso(a) ? -1 : 1
       if (enAlerta(a) !== enAlerta(b)) return enAlerta(a) ? -1 : 1
       if (enAlerta(a)) return b.estado.dias - a.estado.dias      // la que lleva más días, primero
       return a.nombre.localeCompare(b.nombre)
@@ -150,11 +153,13 @@ export default function AdminHome() {
 
   if (!alumnas) return <Cargando />
   const lista = alumnas.filter(a => (a.nombre + ' ' + (a.email || '')).toLowerCase().includes(filtro.toLowerCase()))
-  const enAlerta = alumnas.filter(a => a.estado.nivel === 'alerta')
+  const enAlerta = alumnas.filter(a => tieneAcceso(a) && a.estado.nivel === 'alerta')
+  const activas = alumnas.filter(tieneAcceso).length
+  const cambiarActiva = (id, valor) => setAlumnas(l => l.map(x => (x.id === id ? { ...x, activa: valor } : x)))
 
   return (
     <>
-      <Header kicker={<span className="badge">ADMIN</span>} title="Mis alumnas" sub={`${alumnas.length} en total`}
+      <Header kicker={<span className="badge">ADMIN</span>} title="Mis alumnas" sub={`${activas} activa${activas === 1 ? '' : 's'} · ${alumnas.length - activas} inactiva${alumnas.length - activas === 1 ? '' : 's'}`}
               right={<button className="icon-btn" onClick={salir} aria-label="Cerrar sesión"><LogOut size={18} aria-hidden="true" /></button>}>
         <div className="row">
           <label htmlFor="buscar" style={{ position: 'absolute', left: -9999 }}>Buscar alumna</label>
@@ -188,7 +193,7 @@ export default function AdminHome() {
         )}
 
         {lista.map(a => (
-          <section key={a.id} className="card">
+          <section key={a.id} className="card" style={tieneAcceso(a) ? undefined : { opacity: 0.7 }}>
             <div className="between" style={{ alignItems: 'flex-start' }}>
               <div style={{ minWidth: 0 }}>
                 <h2 className="card__name"><Link to={`/admin/alumna/${a.id}`} style={{ color: 'var(--text)' }}>{a.nombre}</Link></h2>
@@ -197,10 +202,13 @@ export default function AdminHome() {
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#FCA5A5', marginTop: 2 }}>{a.plan.texto}</div>
                 )}
               </div>
-              <span style={{ ...PILL[a.estado.nivel], fontSize: 12, fontWeight: 700, borderRadius: 999, padding: '4px 10px', whiteSpace: 'nowrap' }}>
+              <BotonActiva alumna={a} onCambio={v => cambiarActiva(a.id, v)} />
+            </div>
+            {tieneAcceso(a) && (
+              <span style={{ ...PILL[a.estado.nivel], alignSelf: 'flex-start', fontSize: 12, fontWeight: 700, borderRadius: 999, padding: '4px 10px', whiteSpace: 'nowrap' }}>
                 {a.estado.nivel === 'alerta' && '⚠ '}{a.estado.texto}
               </span>
-            </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
               <Link className="btn btn--ghost btn--sm" to={`/admin/alumna/${a.id}/rutina`} style={{ textDecoration: 'none' }}>
                 <Dumbbell size={16} aria-hidden="true" />Rutina

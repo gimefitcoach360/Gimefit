@@ -5,7 +5,9 @@ import { supabase } from '../../supabase'
 import { COMIDAS, FASES, HAMBRE, hoyAR } from '../../lib/constantes'
 import { estadoVencimiento, formatoFecha } from '../../lib/fechas'
 import { DOMINIO } from '../../lib/claves'
-import { Cargando, Header } from '../../components/ui'
+import { Cargando, Chip, Header } from '../../components/ui'
+import BotonActiva from '../../components/BotonActiva'
+import { SECCIONES, seccionesDe, tieneAcceso } from '../../lib/acceso'
 
 const DIA_MS = 86400000
 
@@ -39,6 +41,7 @@ export default function AdminAlumna() {
   const [aviso, setAviso] = useState('')
   const [error, setError] = useState('')
   const [fotos, setFotos] = useState({})
+  const [guardandoSec, setGuardandoSec] = useState(false)
 
   const cargar = useCallback(async () => {
     const desde = hoyAR(new Date(Date.now() - 6 * DIA_MS))
@@ -84,6 +87,18 @@ export default function AdminAlumna() {
     if (error) return setError('No se pudo guardar la fecha.')
     setAviso(vence ? `Plan hasta el ${formatoFecha(vence, { day: 'numeric', month: 'long', year: 'numeric' })}.` : 'Se quitó la fecha de vencimiento.')
     cargar()
+  }
+
+  // Qué secciones ve la alumna (al menos una)
+  async function cambiarSeccion(sec) {
+    const actuales = seccionesDe(p)
+    const nuevas = actuales.includes(sec) ? actuales.filter(x => x !== sec) : SECCIONES.map(x => x.id).filter(x => x === sec || actuales.includes(x))
+    if (!nuevas.length) return setError('Tiene que tener al menos una sección habilitada.')
+    setError(''); setAviso(''); setGuardandoSec(true)
+    const { error } = await supabase.from('perfiles').update({ secciones: nuevas }).eq('id', id)
+    setGuardandoSec(false)
+    if (error) return setError('No se pudo guardar. ¿Corriste el archivo 07 en Supabase?')
+    setD(x => ({ ...x, perfil: { ...x.perfil, secciones: nuevas } }))
   }
 
   async function enviarMensaje() {
@@ -144,7 +159,19 @@ export default function AdminAlumna() {
 
         <Seccion titulo="Plan" icono={CalendarClock}
                  extra={est && <span className="badge" style={est.nivel === 'ok' ? {} : { background: '#FCA5A5' }}>{est.texto}</span>}>
-          <label htmlFor="vence" className="muted">Fecha de vencimiento. Una semana antes, la alumna ve un aviso para renovar.</label>
+          <div className="between" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <span className="muted">{tieneAcceso(p) ? 'Puede entrar a la app.' : 'No puede entrar a la app. Sus datos quedan guardados.'}</span>
+            <BotonActiva alumna={p} grande onCambio={v => setD(x => ({ ...x, perfil: { ...x.perfil, activa: v } }))} />
+          </div>
+          <div className="stack" style={{ gap: 6 }}>
+            <span className="label">Secciones que ve</span>
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+              {SECCIONES.map(sec => (
+                <Chip key={sec.id} on={seccionesDe(p).includes(sec.id)} disabled={guardandoSec} onClick={() => cambiarSeccion(sec.id)}>{sec.label}</Chip>
+              ))}
+            </div>
+          </div>
+          <label htmlFor="vence" className="muted">Fecha de vencimiento. Una semana antes, la alumna ve un aviso para renovar; al día siguiente de vencer, queda inactiva sola. Si ponés una fecha nueva, se reactiva.</label>
           <div className="row">
             <input id="vence" className="input input--sm" type="date" value={vence} onChange={e => setVence(e.target.value)} />
             <button className="btn btn--sm" style={{ flexShrink: 0 }} onClick={guardarVence}>Guardar</button>

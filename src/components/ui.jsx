@@ -43,13 +43,15 @@ export function Header({ kicker, title, sub, right, children }) {
   )
 }
 
-export function BottomNav() {
-  const items = [
+export function BottomNav({ secciones }) {
+  const todos = [
     { to: '/entreno', label: 'Entreno', Icon: Dumbbell },
     { to: '/nutricion', label: 'Nutrición', Icon: Utensils },
     { to: '/coaching', label: 'Coaching', Icon: Heart },
     { to: '/progreso', label: 'Progreso', Icon: TrendingUp },
   ]
+  // Progreso siempre; las otras, solo las que la alumna tiene habilitadas
+  const items = todos.filter(i => i.to === '/progreso' || !secciones || secciones.includes(i.to.slice(1)))
   return (
     <nav className="nav" aria-label="Secciones">
       <div className="nav__in">

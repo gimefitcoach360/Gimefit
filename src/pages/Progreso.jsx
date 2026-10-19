@@ -8,9 +8,11 @@ import { FASES, hoyAR } from '../lib/constantes'
 import { Cargando, Chip, Header } from '../components/ui'
 import Medidas from '../components/Medidas'
 import Recordatorios from '../components/Recordatorios'
+import { seccionesDe } from '../lib/acceso'
 
 export default function Progreso() {
-  const { user } = useAuth()
+  const { user, perfil } = useAuth()
+  const tiene = s => seccionesDe(perfil).includes(s)
   const pos = useFaseActual(user.id)
   const [d, setD] = useState(null)
   const [ejSel, setEjSel] = useState(null)
@@ -92,9 +94,9 @@ export default function Progreso() {
           <div className="card" style={{ gap: 2 }}><span className="muted">Entrenos hechos</span>
             <span className="big">{d.completados.size} <small style={{ fontSize: 20, color: 'var(--faint)' }}>/ {d.dias.length}</small></span></div>
           <div className="card" style={{ gap: 2 }}><span className="muted">Series registradas</span><span className="big">{seriesHechas}</span></div>
-          <div className="card" style={{ gap: 2 }}><span className="muted">Comidas cumplidas</span><span className="big">{d.comidas}</span></div>
-          <div className="card" style={{ gap: 2 }}><span className="muted">Actividades hechas</span>
-            <span className="big">{d.actividades} <small style={{ fontSize: 20, color: 'var(--faint)' }}>/ 36</small></span></div>
+          {tiene('nutricion') && <div className="card" style={{ gap: 2 }}><span className="muted">Comidas cumplidas</span><span className="big">{d.comidas}</span></div>}
+          {tiene('coaching') && <div className="card" style={{ gap: 2 }}><span className="muted">Actividades hechas</span>
+            <span className="big">{d.actividades} <small style={{ fontSize: 20, color: 'var(--faint)' }}>/ 36</small></span></div>}
         </div>
 
         <section className="card">

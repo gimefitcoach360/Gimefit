@@ -65,15 +65,17 @@ function ahoraAR() {
 
 // Qué recordarle a una alumna hoy (o nada)
 async function avisoDelDia(alumnaId: string, fecha: string): Promise<Aviso | null> {
-  const { data: perfil } = await db.from('perfiles').select('nombre, activa').eq('id', alumnaId).maybeSingle()
+  const { data: perfil } = await db.from('perfiles').select('*').eq('id', alumnaId).maybeSingle()
   if (!perfil || perfil.activa === false) return null
+  if (perfil.vence && perfil.vence < fecha) return null            // plan vencido
+  const secciones: string[] = perfil.secciones ?? ['entreno', 'nutricion', 'coaching']
   const nombre = (perfil.nombre || '').split(' ')[0]
 
   const desde = `${fecha}T00:00:00-03:00`
   const { count: hoyEntreno } = await db.from('dias_completados')
     .select('dia_id', { count: 'exact', head: true }).eq('alumna_id', alumnaId).gte('completado_at', desde)
 
-  if (!hoyEntreno) {
+  if (secciones.includes('entreno') && !hoyEntreno) {
     const [{ data: dias }, { data: hechos }] = await Promise.all([
       db.from('rutina_dias').select('id, dia_numero, nombre').eq('alumna_id', alumnaId)
         .order('fase').order('semana').order('dia_numero'),
@@ -88,6 +90,7 @@ async function avisoDelDia(alumnaId: string, fecha: string): Promise<Aviso | nul
     }
   }
 
+  if (!secciones.includes('coaching')) return null
   const { count: checkin } = await db.from('checkins')
     .select('id', { count: 'exact', head: true }).eq('alumna_id', alumnaId).eq('fecha', fecha)
   if (!checkin) return {
