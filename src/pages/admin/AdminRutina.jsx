@@ -327,6 +327,27 @@ export default function AdminRutina() {
     cargarDias(false)
   }
 
+  // Borra TODO el mes (todos los días y semanas de esta fase), incluso lo ya entrenado
+  async function vaciarMes() {
+    if (!dias.length) return
+    setError(''); setMsg('')
+    const nombre = alumna?.nombre || 'la alumna'
+    if (!window.confirm(`¿Vaciar ${FASES[fase]} de ${nombre}? Se borran todos los días de las 4 semanas de esta fase.`)) return
+    setGuardando(true)
+    try {
+      const empezadas = await semanasEmpezadas([...new Set(dias.map(d => d.dia_numero))])
+      if (empezadas.length && !window.confirm(`Atención: ${nombre} ya registró entrenamientos en ${empezadas.length > 1 ? `las semanas ${empezadas.join(', ')}` : `la semana ${empezadas[0]}`} de ${FASES[fase]}. Si seguís, esos registros (kilos, reps y días terminados) también se borran y no se pueden recuperar. ¿Vaciar igual?`)) return
+      const { error } = await supabase.from('rutina_dias').delete().eq('alumna_id', alumnaId).eq('fase', fase)
+      if (error) throw error
+      setMsg(`${FASES[fase]} quedó vacía. Ya podés cargarla de cero o aplicar una plantilla.`)
+      await cargarDias(false)
+    } catch (e) {
+      setError('No se pudo vaciar: ' + e.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
   const semanasDelDia = dias.filter(d => d.dia_numero === diaNum).map(d => d.semana)
 
   const Pregunta = () => (
@@ -449,6 +470,9 @@ export default function AdminRutina() {
         <button className="btn" onClick={guardar} disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar día para todo el mes'}</button>
         <button className="btn btn--ghost btn--sm" onClick={borrarDia} disabled={!semanasDelDia.length}>
           <Trash2 size={16} aria-hidden="true" />Borrar este día del mes
+        </button>
+        <button className="btn btn--ghost btn--sm" onClick={vaciarMes} disabled={!dias.length || guardando} style={{ color: '#FCA5A5', borderColor: '#7F1D1D' }}>
+          <Trash2 size={16} aria-hidden="true" />Vaciar {FASES[fase]} completa
         </button>
         <div className="faint">* Día nuevo, todavía sin guardar.</div>
       </div>

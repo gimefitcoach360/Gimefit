@@ -77,7 +77,7 @@ async function avisoDelDia(alumnaId: string, fecha: string): Promise<Aviso | nul
 
   if (secciones.includes('entreno') && !hoyEntreno) {
     const [{ data: dias }, { data: hechos }] = await Promise.all([
-      db.from('rutina_dias').select('id, dia_numero, nombre').eq('alumna_id', alumnaId)
+      db.from('rutina_dias').select('id, dia_numero, nombre').eq('alumna_id', alumnaId).gte('fase', perfil.fase_inicio ?? 1)
         .order('fase').order('semana').order('dia_numero'),
       db.from('dias_completados').select('dia_id').eq('alumna_id', alumnaId),
     ])

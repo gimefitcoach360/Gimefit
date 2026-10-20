@@ -7,6 +7,7 @@ import { Cargando, CheckBtn, Chip, DonePill, Header } from '../components/ui'
 import Avisos from '../components/Avisos'
 import TimerDescanso from '../components/TimerDescanso'
 import { colaDe, encolar, enviarCola } from '../lib/offline'
+import { faseInicio } from '../lib/acceso'
 
 const clave = (ejId, n) => `${ejId}|${n}`
 const aNumero = v => (v === '' || v == null ? null : Number(String(v).replace(',', '.')))
@@ -37,7 +38,7 @@ export default function Entreno() {
     let vivo = true
     ;(async () => {
       const [d, c] = await Promise.all([
-        supabase.from('rutina_dias').select('*').eq('alumna_id', user.id)
+        supabase.from('rutina_dias').select('*').eq('alumna_id', user.id).gte('fase', faseInicio(perfil))
           .order('fase').order('semana').order('dia_numero'),
         supabase.from('dias_completados').select('dia_id, sensacion').eq('alumna_id', user.id),
       ])
@@ -51,7 +52,7 @@ export default function Entreno() {
       setVerId(lista.find(x => !h[x.id])?.id ?? lista[lista.length - 1]?.id ?? null)
     })()
     return () => { vivo = false }
-  }, [user.id])
+  }, [user.id, perfil?.fase_inicio]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 2. Ejercicios y registros del día que se está viendo
   useEffect(() => {

@@ -8,7 +8,7 @@ import { FASES, hoyAR } from '../lib/constantes'
 import { Cargando, Chip, Header } from '../components/ui'
 import Medidas from '../components/Medidas'
 import Recordatorios from '../components/Recordatorios'
-import { seccionesDe } from '../lib/acceso'
+import { faseInicio, seccionesDe } from '../lib/acceso'
 
 export default function Progreso() {
   const { user, perfil } = useAuth()
@@ -23,7 +23,7 @@ export default function Progreso() {
     ;(async () => {
       const desde = hoyAR(new Date(Date.now() - 6 * 86400000))
       const [dias, comp, series, comidas, acts, checks] = await Promise.all([
-        supabase.from('rutina_dias').select('id, fase, semana, dia_numero').eq('alumna_id', user.id),
+        supabase.from('rutina_dias').select('id, fase, semana, dia_numero').eq('alumna_id', user.id).gte('fase', faseInicio(perfil)),
         supabase.from('dias_completados').select('dia_id').eq('alumna_id', user.id),
         supabase.from('registros_series').select('peso_kg, hecho, rutina_ejercicios!inner(nombre, dia_id)').eq('alumna_id', user.id),
         supabase.from('registros_comida').select('id', { count: 'exact', head: true }).eq('alumna_id', user.id).eq('cumplida', true),

@@ -7,7 +7,7 @@ import { estadoVencimiento, formatoFecha } from '../../lib/fechas'
 import { DOMINIO } from '../../lib/claves'
 import { Cargando, Chip, Header } from '../../components/ui'
 import BotonActiva from '../../components/BotonActiva'
-import { SECCIONES, seccionesDe, tieneAcceso } from '../../lib/acceso'
+import { SECCIONES, faseInicio, seccionesDe, tieneAcceso } from '../../lib/acceso'
 
 const DIA_MS = 86400000
 
@@ -59,7 +59,8 @@ export default function AdminAlumna() {
       q('medidas').order('fecha', { ascending: false }),
     ])
     const completados = new Set((comp.data || []).map(c => c.dia_id))
-    const proximo = (dias.data || []).find(x => !completados.has(x.id))
+    const inicio = faseInicio(perfil.data)
+    const proximo = (dias.data || []).find(x => x.fase >= inicio && !completados.has(x.id))
     setD({
       perfil: perfil.data, dias: dias.data || [], comp: comp.data || [], completados, proximo,
       checks: checks.data || [], comidas: comidas.data || [], emos: emos.data || [],
@@ -99,6 +100,14 @@ export default function AdminAlumna() {
     setGuardandoSec(false)
     if (error) return setError('No se pudo guardar. ¿Corriste el archivo 07 en Supabase?')
     setD(x => ({ ...x, perfil: { ...x.perfil, secciones: nuevas } }))
+  }
+
+  async function cambiarFaseInicio(f) {
+    setError(''); setAviso('')
+    const { error } = await supabase.from('perfiles').update({ fase_inicio: f }).eq('id', id)
+    if (error) return setError('No se pudo guardar. ¿Corriste el archivo 08 en Supabase?')
+    setAviso(f === 1 ? 'Arranca desde Activación.' : `Arranca en ${FASES[f]}: las fases anteriores no se le muestran.`)
+    cargar()
   }
 
   async function enviarMensaje() {
@@ -171,6 +180,11 @@ export default function AdminAlumna() {
               ))}
             </div>
           </div>
+          <label className="field"><span className="label">Empieza en la fase</span>
+            <select className="input input--sm" value={faseInicio(p)} onChange={e => cambiarFaseInicio(Number(e.target.value))}>
+              {[1, 2, 3].map(f => <option key={f} value={f}>{FASES[f]}{f > 1 ? ` (se saltea ${f === 2 ? 'Activación' : 'Activación y Progresión'})` : ''}</option>)}
+            </select>
+          </label>
           <label htmlFor="vence" className="muted">Fecha de vencimiento. Una semana antes, la alumna ve un aviso para renovar; al día siguiente de vencer, queda inactiva sola. Si ponés una fecha nueva, se reactiva.</label>
           <div className="row">
             <input id="vence" className="input input--sm" type="date" value={vence} onChange={e => setVence(e.target.value)} />
