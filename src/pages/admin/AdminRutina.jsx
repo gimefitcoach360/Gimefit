@@ -30,6 +30,12 @@ export default function AdminRutina() {
   const [nombrePlantilla, setNombrePlantilla] = useState('')
   const [guardandoPlantilla, setGuardandoPlantilla] = useState(false)
   const [catalogo, setCatalogo] = useState([])
+  const [pregunta, setPregunta] = useState(null)   // { semanas, responder }
+
+  // Cuando la alumna ya empezó alguna semana, Gime elige: cambiar todas o solo las que no empezó
+  const preguntar = (semanas, origen) => new Promise(resolve => setPregunta({
+    semanas, origen, responder: r => { setPregunta(null); resolve(r) },
+  }))
 
   const cargarCatalogo = useCallback(async () => {
     const { data } = await supabase.from('ejercicios_catalogo').select('nombre, video_url').order('nombre')
@@ -117,13 +123,62 @@ export default function AdminRutina() {
     return count > 0
   }
 
-  // Guarda un día en las 4 semanas del mes. Devuelve { actualizadas, respetadas }.
-  async function guardarDiaEnMes(numero, nombre, filas, diasMes) {
+  // Semanas (de estos días) que la alumna ya empezó
+  async function semanasEmpezadas(numeros) {
+    const out = new Set()
+    for (const d of dias.filter(x => numeros.includes(x.dia_numero))) if (await yaEmpezado(d.id)) out.add(d.semana)
+    return [...out].sort()
+  }
+
+  /**
+   * Cambia un día que la alumna ya empezó SIN perder lo que entrenó:
+   * los ejercicios con el mismo nombre se actualizan (y conservan sus series cargadas),
+   * los nuevos se agregan, y los que se sacan se borran solo si no tienen series cargadas.
+   * Devuelve cuántos ejercicios se conservaron por tener series registradas.
+   */
+  async function actualizarEnLugar(diaId, nombre, filas) {
+    const { error: e1 } = await supabase.from('rutina_dias').update({ nombre }).eq('id', diaId)
+    if (e1) throw e1
+    const { data: actuales } = await supabase.from('rutina_ejercicios').select('id, nombre').eq('dia_id', diaId).order('orden')
+    const libres = [...(actuales || [])]
+    for (const f of filas) {
+      const i = libres.findIndex(x => x.nombre.trim().toLowerCase() === f.nombre.toLowerCase())
+      if (i >= 0) {
+        const { error } = await supabase.from('rutina_ejercicios').update(f).eq('id', libres[i].id)
+        if (error) throw error
+        libres.splice(i, 1)
+      } else {
+        const { error } = await supabase.from('rutina_ejercicios').insert({ ...f, dia_id: diaId })
+        if (error) throw error
+      }
+    }
+    let conservados = 0
+    for (const x of libres) {
+      const { count } = await supabase.from('registros_series').select('id', { count: 'exact', head: true }).eq('ejercicio_id', x.id)
+      if (count > 0) {
+        conservados++
+        await supabase.from('rutina_ejercicios').update({ orden: filas.length + conservados }).eq('id', x.id)
+      } else {
+        const { error } = await supabase.from('rutina_ejercicios').delete().eq('id', x.id)
+        if (error) throw error
+      }
+    }
+    return conservados
+  }
+
+  // Guarda un día en las 4 semanas del mes. Devuelve { actualizadas, respetadas, conservados }.
+  // incluirEmpezadas: también cambia las semanas que la alumna ya empezó (sin perder lo entrenado).
+  async function guardarDiaEnMes(numero, nombre, filas, diasMes, incluirEmpezadas = false) {
     const actualizadas = [], respetadas = []
+    let conservados = 0
     for (const semana of SEMANAS) {
       const existente = diasMes.find(d => d.semana === semana && d.dia_numero === numero)
       if (existente) {
-        if (await yaEmpezado(existente.id)) { respetadas.push(semana); continue }
+        if (await yaEmpezado(existente.id)) {
+          if (!incluirEmpezadas) { respetadas.push(semana); continue }
+          conservados += await actualizarEnLugar(existente.id, nombre, filas)
+          actualizadas.push(semana); continue
+        }
         const { error: e1 } = await supabase.from('rutina_dias').update({ nombre }).eq('id', existente.id)
         if (e1) throw e1
         const { error: e2 } = await supabase.from('rutina_ejercicios').delete().eq('dia_id', existente.id)
@@ -143,8 +198,10 @@ export default function AdminRutina() {
       }
       actualizadas.push(semana)
     }
-    return { actualizadas, respetadas }
+    return { actualizadas, respetadas, conservados }
   }
+
+  const textoConservados = n => n ? ` Se conservaron ${n} ejercicio(s) que sacaste porque ya tenían series cargadas (así no se pierde lo que entrenó).` : ''
 
   async function guardar() {
     setError(''); setMsg('')
@@ -161,11 +218,14 @@ export default function AdminRutina() {
 
     setGuardando(true)
     try {
-      const { actualizadas, respetadas } = await guardarDiaEnMes(diaNum, nombreDia.trim(), filas, dias)
+      const empezadas = await semanasEmpezadas([diaNum])
+      const incluir = empezadas.length ? await preguntar(empezadas, 'dia') : false
+      if (incluir === null) return
+      const { actualizadas, respetadas, conservados } = await guardarDiaEnMes(diaNum, nombreDia.trim(), filas, dias, incluir)
       sumarAlCatalogo(filas)
-      setMsg(respetadas.length
+      setMsg((respetadas.length
         ? `Día ${diaNum} guardado en las semanas ${actualizadas.join(', ') || '—'}. Las semanas ${respetadas.join(', ')} no se tocaron porque la alumna ya las empezó.`
-        : `Día ${diaNum} guardado para todo el mes (semanas 1 a 4).`)
+        : `Día ${diaNum} guardado para todo el mes (semanas 1 a 4).`) + textoConservados(conservados))
       await cargarDias(true)
     } catch (e) {
       setError('No se pudo guardar: ' + e.message)
@@ -212,21 +272,27 @@ export default function AdminRutina() {
     const p = plantillas.find(x => x.id === plantillaSel)
     if (!p) return
     setError(''); setMsg('')
-    if (!window.confirm(`¿Aplicar "${p.nombre}" a ${FASES[fase]}? Se cargan sus ${p.dias.length} día(s) en las 4 semanas. Las semanas que la alumna ya empezó no se tocan.`)) return
+    if (!window.confirm(`¿Aplicar "${p.nombre}" a ${FASES[fase]}? Se cargan sus ${p.dias.length} día(s) en las 4 semanas.`)) return
     setGuardandoPlantilla(true)
     try {
+      const empezadas = await semanasEmpezadas(p.dias.map(d => d.dia_numero))
+      const incluir = empezadas.length ? await preguntar(empezadas, 'plantilla') : false
+      if (incluir === null) return
       const respetadasTotal = new Set()
+      let conservadosTotal = 0
       for (const d of p.dias) {
         const filas = (d.ejercicios || []).map((e, i) => ({
           orden: i + 1, nombre: e.nombre, series: e.series, reps_objetivo: e.reps_objetivo, descanso_seg: e.descanso_seg ?? 60, video_url: e.video_url || null,
         }))
-        const { respetadas } = await guardarDiaEnMes(d.dia_numero, d.nombre, filas, dias)
+        const { respetadas, conservados } = await guardarDiaEnMes(d.dia_numero, d.nombre, filas, dias, incluir)
         respetadas.forEach(s => respetadasTotal.add(s))
+        conservadosTotal += conservados
       }
       const otros = [...new Set(dias.map(d => d.dia_numero))].filter(n => !p.dias.some(d => d.dia_numero === n))
       setMsg(`Plantilla "${p.nombre}" aplicada a ${FASES[fase]}.`
         + (respetadasTotal.size ? ` No se tocaron las semanas ${[...respetadasTotal].sort().join(', ')} porque ya estaban empezadas.` : '')
-        + (otros.length ? ` Ojo: el mes ya tenía el/los Día ${otros.join(', ')}, que la plantilla no incluye; quedaron como estaban.` : ''))
+        + (otros.length ? ` Ojo: el mes ya tenía el/los Día ${otros.join(', ')}, que la plantilla no incluye; quedaron como estaban.` : '')
+        + textoConservados(conservadosTotal))
       setPlantillaSel('')
       await cargarDias(false)
     } catch (e) {
@@ -262,6 +328,20 @@ export default function AdminRutina() {
   }
 
   const semanasDelDia = dias.filter(d => d.dia_numero === diaNum).map(d => d.semana)
+
+  const Pregunta = () => (
+          <div className="card card--violet" role="alertdialog" aria-labelledby="preg-titulo" style={{ gap: 10 }}>
+            <h2 id="preg-titulo" className="card__name" style={{ fontSize: 16 }}>
+              {alumna?.nombre || 'La alumna'} ya empezó {pregunta.semanas.length > 1 ? `las semanas ${pregunta.semanas.join(', ')}` : `la semana ${pregunta.semanas[0]}`}
+            </h2>
+            <div className="muted" style={{ fontSize: 14 }}>
+              Si cambiás también {pregunta.semanas.length > 1 ? 'esas semanas' : 'esa semana'}, lo que ya entrenó no se pierde: los ejercicios que mantenés conservan sus series cargadas.
+            </div>
+            <button className="btn btn--sm" onClick={() => pregunta.responder(true)}>Cambiar todas las semanas</button>
+            <button className="btn btn--ghost btn--sm" onClick={() => pregunta.responder(false)}>Solo las semanas que no empezó</button>
+            <button className="btn btn--ghost btn--sm" onClick={() => pregunta.responder(null)}>Cancelar</button>
+          </div>
+  )
 
   return (
     <>
@@ -308,6 +388,7 @@ export default function AdminRutina() {
                       style={{ background: 'transparent' }}><Trash2 size={16} aria-hidden="true" /></button>
             </div>
           </div>
+          {pregunta?.origen === 'plantilla' && <Pregunta />}
           <div className="field">
             <label htmlFor="nombre-plantilla">Guardar este mes como plantilla</label>
             <div className="row">
@@ -362,6 +443,8 @@ export default function AdminRutina() {
 
         {error && <div className="error" role="alert">{error}</div>}
         {msg && <div className="notice" role="status">{msg}</div>}
+
+        {pregunta?.origen === 'dia' && <Pregunta />}
 
         <button className="btn" onClick={guardar} disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar día para todo el mes'}</button>
         <button className="btn btn--ghost btn--sm" onClick={borrarDia} disabled={!semanasDelDia.length}>
