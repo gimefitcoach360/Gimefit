@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { CalendarClock, ChevronLeft, Dumbbell, MessageCircle, Send, Utensils } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { CalendarClock, ChevronLeft, Dumbbell, MessageCircle, Send, Trash2, Utensils } from 'lucide-react'
 import { supabase } from '../../supabase'
 import { COMIDAS, FASES, HAMBRE, hoyAR } from '../../lib/constantes'
 import { estadoVencimiento, formatoFecha } from '../../lib/fechas'
@@ -42,6 +42,8 @@ export default function AdminAlumna() {
   const [error, setError] = useState('')
   const [fotos, setFotos] = useState({})
   const [guardandoSec, setGuardandoSec] = useState(false)
+  const [borrando, setBorrando] = useState(false)
+  const navigate = useNavigate()
 
   const cargar = useCallback(async () => {
     const desde = hoyAR(new Date(Date.now() - 6 * DIA_MS))
@@ -108,6 +110,23 @@ export default function AdminAlumna() {
     if (error) return setError('No se pudo guardar. ¿Corriste el archivo 08 en Supabase?')
     setAviso(f === 1 ? 'Arranca desde Activación.' : `Arranca en ${FASES[f]}: las fases anteriores no se le muestran.`)
     cargar()
+  }
+
+  // Elimina la cuenta y TODO lo de la alumna. No se puede deshacer.
+  async function eliminarAlumna() {
+    const nombre = p?.nombre || 'esta alumna'
+    if (!window.confirm(`¿Eliminar a ${nombre}? Se borra su cuenta y todo lo que cargó: rutinas, entrenamientos, comidas, check-ins, medidas y fotos. No se puede deshacer.\n\nSi solo querés que no entre por un tiempo, usá el botón Inactiva.`)) return
+    const escrito = window.prompt(`Para confirmar, escribí ELIMINAR`)
+    if ((escrito || '').trim().toUpperCase() !== 'ELIMINAR') { if (escrito !== null) setError('No se eliminó: tenías que escribir ELIMINAR.'); return }
+    setError(''); setAviso(''); setBorrando(true)
+    // 1) Fotos de progreso (no se borran solas)
+    const { data: archivos } = await supabase.storage.from('progreso').list(id, { limit: 1000 })
+    if (archivos?.length) await supabase.storage.from('progreso').remove(archivos.map(f => `${id}/${f.name}`))
+    // 2) Cuenta y todos sus datos
+    const { error } = await supabase.rpc('admin_borrar_alumna', { p_alumna: id })
+    setBorrando(false)
+    if (error) return setError(error.message.includes('admin_borrar_alumna') ? 'Falta correr el archivo 09 en Supabase.' : 'No se pudo eliminar: ' + error.message)
+    navigate('/admin', { replace: true })
   }
 
   async function enviarMensaje() {
@@ -258,6 +277,14 @@ export default function AdminAlumna() {
             </div>
           )}
         </Seccion>
+
+        <section className="card" style={{ borderColor: '#7F1D1D' }}>
+          <h2 className="card__name" style={{ fontSize: 15 }}>Eliminar alumna</h2>
+          <div className="muted" style={{ fontSize: 14 }}>Borra su cuenta y todo lo que cargó. No se puede deshacer. Si solo querés que no entre por un tiempo, usá el botón <b>Inactiva</b> de arriba.</div>
+          <button className="btn btn--ghost btn--sm" onClick={eliminarAlumna} disabled={borrando} style={{ color: '#FCA5A5', borderColor: '#7F1D1D' }}>
+            <Trash2 size={16} aria-hidden="true" />{borrando ? 'Eliminando…' : `Eliminar a ${p?.nombre || 'la alumna'}`}
+          </button>
+        </section>
       </div>
     </>
   )
