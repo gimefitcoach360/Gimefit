@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './auth'
 import { configurado } from './supabase'
 import { BottomNav, Cargando } from './components/ui'
@@ -16,9 +16,11 @@ const AdminRutina = lazy(() => import('./pages/admin/AdminRutina'))
 const AdminAlumna = lazy(() => import('./pages/admin/AdminAlumna'))
 const AdminComidas = lazy(() => import('./pages/admin/AdminComidas'))
 const AdminEjercicios = lazy(() => import('./pages/admin/AdminEjercicios'))
+const AdminProgreso = lazy(() => import('./pages/admin/AdminProgreso'))
 
 export default function App() {
   const { session, perfil, cargando } = useAuth()
+  const { pathname } = useLocation()
 
   if (!configurado) {
     return (
@@ -32,13 +34,14 @@ export default function App() {
 
   if (perfil?.rol === 'admin') {
     return (
-      <div className="app app--wide">
+      <div className={'app app--wide' + (pathname.endsWith('/progreso') ? ' app--xl' : '')}>
         <Suspense fallback={<Cargando />}>
         <Routes>
           <Route path="/admin" element={<AdminHome />} />
           <Route path="/admin/ejercicios" element={<AdminEjercicios />} />
           <Route path="/admin/alumna/:id" element={<AdminAlumna />} />
           <Route path="/admin/alumna/:id/rutina" element={<AdminRutina />} />
+          <Route path="/admin/alumna/:id/progreso" element={<AdminProgreso />} />
           <Route path="/admin/alumna/:id/comidas" element={<AdminComidas />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, Copy, Dumbbell, Library, KeyRound, LogOut, Plus, RefreshCw, Utensils, X } from 'lucide-react'
+import { AlertTriangle, Copy, Dumbbell, TrendingUp, Library, KeyRound, LogOut, Plus, RefreshCw, Utensils, X } from 'lucide-react'
 import { supabase } from '../../supabase'
 import { useAuth } from '../../auth'
 import { Cargando, Header } from '../../components/ui'
@@ -209,12 +209,15 @@ export default function AdminHome() {
                 {a.estado.nivel === 'alerta' && '⚠ '}{a.estado.texto}
               </span>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
               <Link className="btn btn--ghost btn--sm" to={`/admin/alumna/${a.id}/rutina`} style={{ textDecoration: 'none' }}>
                 <Dumbbell size={16} aria-hidden="true" />Rutina
               </Link>
               <Link className="btn btn--ghost btn--sm" to={`/admin/alumna/${a.id}/comidas`} style={{ textDecoration: 'none' }}>
                 <Utensils size={16} aria-hidden="true" />Comidas
+              </Link>
+              <Link className="btn btn--ghost btn--sm" to={`/admin/alumna/${a.id}/progreso`} style={{ textDecoration: 'none' }}>
+                <TrendingUp size={16} aria-hidden="true" />Progreso
               </Link>
               <button className="btn btn--ghost btn--sm" aria-expanded={claveAbierta === a.id}
                       onClick={() => { setClaveAbierta(claveAbierta === a.id ? null : a.id); setMensaje(null) }}>

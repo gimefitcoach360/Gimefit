@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CalendarClock, ChevronLeft, Dumbbell, MessageCircle, Send, Trash2, Utensils } from 'lucide-react'
+import { CalendarClock, ChevronLeft, Dumbbell, TrendingUp, MessageCircle, Send, Trash2, Utensils } from 'lucide-react'
 import { supabase } from '../../supabase'
 import { COMIDAS, FASES, HAMBRE, hoyAR } from '../../lib/constantes'
 import { estadoVencimiento, formatoFecha } from '../../lib/fechas'
@@ -152,6 +152,7 @@ export default function AdminAlumna() {
           <Link className="btn btn--ghost btn--sm" to={`/admin/alumna/${id}/rutina`} style={{ textDecoration: 'none' }}><Dumbbell size={16} aria-hidden="true" />Rutina</Link>
           <Link className="btn btn--ghost btn--sm" to={`/admin/alumna/${id}/comidas`} style={{ textDecoration: 'none' }}><Utensils size={16} aria-hidden="true" />Comidas</Link>
         </div>
+        <Link className="btn btn--sm" to={`/admin/alumna/${id}/progreso`} style={{ textDecoration: 'none' }}><TrendingUp size={16} aria-hidden="true" />Progreso por ejercicio</Link>
       </Header>
 
       <div className="body" style={{ paddingBottom: 40 }}>
