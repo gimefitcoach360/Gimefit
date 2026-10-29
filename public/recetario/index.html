@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="30 recetas saladas, fáciles y con proteínas para desayunos, almuerzos, meriendas y cenas.">
+<meta property="og:title" content="Recetario fitness Gimefit">
+<meta property="og:description" content="30 recetas saladas, fáciles y con proteínas. Pedí tu asesoramiento personalizado.">
+<meta property="og:image" content="https://gimefit.vercel.app/icon-512.png">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="/icon.svg">
+<title>Recetario Gimefit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap">
+<style>
+/* Layout: hero de marca → filtros por momento del día → grilla de recetas → CTA a WhatsApp + botón flotante */
+:root{
+  --bg:#000000; --surface:#0E0A14; --line:#2A1F38;
+  --fg:#F4EFFA; --muted:#A99BBB;
+  --violet:#A855F7; --violet-soft:#C084FC; --violet-deep:#6B21A8;
+  --wa:#25D366; --wa-ink:#04210F;
+  --display:"Bebas Neue",Impact,"Arial Narrow",sans-serif;
+  --body:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.55;margin:0}
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* HERO */
+.hero{padding-block:48px 32px;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;right:-120px;top:-80px;width:380px;height:380px;border-radius:50%;
+  background:radial-gradient(circle,rgba(168,85,247,.35),transparent 65%);pointer-events:none}
+.brand{font-family:var(--display);font-size:22px;letter-spacing:.12em;color:var(--violet-soft)}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(56px,13vw,124px);line-height:.88;margin:14px 0 0;letter-spacing:.01em;text-wrap:balance}
+h1 span{color:var(--violet)}
+.lead{font-size:18px;color:var(--muted);max-width:52ch;margin:18px 0 0}
+.stats{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+.stat{border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:14px;color:var(--fg)}
+.stat b{color:var(--violet-soft);font-weight:700}
+
+/* BOTONES */
+.btn-wa{display:inline-flex;align-items:center;gap:10px;background:var(--wa);color:var(--wa-ink);text-decoration:none;
+  font-weight:700;font-size:16px;padding:14px 22px;border-radius:999px;transition:transform .15s ease,box-shadow .15s ease}
+.btn-wa:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(37,211,102,.28)}
+.btn-wa:focus-visible,.chip:focus-visible{outline:3px solid var(--violet-soft);outline-offset:3px}
+.btn-wa svg{width:22px;height:22px;flex:none}
+.hero .btn-wa{margin-top:26px}
+
+/* NOTA */
+.note{border-left:3px solid var(--violet-deep);background:var(--surface);padding:16px 18px;border-radius:0 12px 12px 0;
+  color:var(--muted);font-size:14.5px;max-width:78ch}
+.note strong{color:var(--fg)}
+
+/* FILTROS */
+.filters{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:14px;margin-top:28px;
+  border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;font:500 14px var(--body);color:var(--muted);background:transparent;border:1px solid var(--line);
+  border-radius:999px;padding:8px 16px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--violet);border-color:var(--violet);color:#fff}
+
+/* SECCIONES */
+section.cat{padding-block:34px 8px}
+.cat-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+h2{font-family:var(--display);font-weight:400;font-size:clamp(38px,7vw,56px);line-height:1;margin:0;letter-spacing:.02em}
+.cat-count{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--violet-soft)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.num{font-family:var(--display);font-size:26px;color:var(--violet-deep);line-height:1}
+h3{font-family:var(--display);font-weight:400;font-size:28px;line-height:1.02;margin:4px 0 0;letter-spacing:.02em;text-wrap:balance}
+.macros{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none;font-variant-numeric:tabular-nums}
+.prot{background:rgba(168,85,247,.16);color:var(--violet-soft);font-weight:700;font-size:14px;padding:4px 10px;border-radius:8px;white-space:nowrap}
+.kcal{font-size:13px;color:var(--muted);white-space:nowrap}
+.label{font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--violet-soft);margin:0 0 6px}
+ul.ing{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+ul.ing li{font-size:13.5px;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--fg)}
+.prep{margin:0;font-size:14.5px;color:var(--muted)}
+
+/* CTA */
+.cta{margin-block:48px 120px;border:1px solid var(--violet-deep);border-radius:22px;padding:32px 24px;
+  background:linear-gradient(140deg,rgba(107,33,168,.45),rgba(14,10,20,1) 60%)}
+.cta h2{font-size:clamp(40px,8vw,64px)}
+.cta p{color:var(--muted);max-width:56ch;margin:12px 0 22px}
+.cta .phone{display:block;margin-top:14px;font-size:14px;color:var(--muted);user-select:all}
+footer{color:var(--muted);font-size:13px;padding-block:0 110px;text-align:left}
+
+/* FLOTANTE */
+.fab{position:fixed;z-index:20;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));
+  box-shadow:0 8px 26px rgba(0,0,0,.55)}
+@media (max-width:480px){.fab .fab-text{display:none}.fab{padding:15px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="hero wrap">
+  <div class="brand">GIMEFIT</div>
+  <h1>Recetario <span>fitness</span></h1>
+  <p class="lead">30 recetas saladas, fáciles y con proteínas para desayunos, almuerzos, meriendas y cenas. Alimentación práctica para una vida activa.</p>
+  <div class="stats">
+    <span class="stat"><b>30</b> recetas</span>
+    <span class="stat"><b>17–52 g</b> de proteínas por porción</span>
+    <span class="stat"><b>330–590</b> kcal</span>
+  </div>
+  <a class="btn-wa" id="wa-hero" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3a.5.5 0 0 0 0-.5l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.2 2.2 2.2 0 0 0 .1-1.3c0-.1-.2-.2-.5-.3Z"/></svg>
+    Quiero asesoramiento personalizado
+  </a>
+</header>
+
+<div class="wrap">
+  <p class="note"><strong>Cómo usar este recetario.</strong> Todas las cantidades corresponden a una porción. Carnes, arroz y legumbres se indican en peso cocido cuando corresponde. Las calorías y proteínas son estimaciones que varían según marca, tamaño, cocción y aceite. No reemplazan un plan alimentario individual: para déficit, mantenimiento o ganancia muscular hay que ajustar las porciones a cada persona. Cociná bien pollo, carne, pescado y huevo, y conservá todo refrigerado.</p>
+</div>
+
+<nav class="filters" aria-label="Filtrar por momento del día">
+  <div class="wrap chips" id="chips"></div>
+</nav>
+
+<main class="wrap" id="recipes"></main>
+
+<div class="wrap">
+  <aside class="cta">
+    <h2>Tu plan, a tu medida</h2>
+    <p>Estas recetas son un punto de partida. Si querés saber qué porciones te sirven a vos según tu objetivo, tu entrenamiento y tu rutina, escribime y armamos tu plan personalizado.</p>
+    <a class="btn-wa" id="wa-cta" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3a.5.5 0 0 0 0-.5l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.2 2.2 2.2 0 0 0 .1-1.3c0-.1-.2-.2-.5-.3Z"/></svg>
+      Hablar con Gime por WhatsApp
+    </a>
+    <span class="phone">WhatsApp: +54 9 11 3627-2229</span>
+  </aside>
+  <footer>Gimefit · Gimena · Profesora de Educación Física · Personal Trainer · Nutrición Deportiva (UTN)</footer>
+</div>
+
+<a class="btn-wa fab" id="wa-fab" target="_blank" rel="noopener" aria-label="Asesoramiento personalizado por WhatsApp">
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3a.5.5 0 0 0 0-.5l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.2 2.2 2.2 0 0 0 .1-1.3c0-.1-.2-.2-.5-.3Z"/></svg>
+  <span class="fab-text">Asesoramiento</span>
+</a>
+
+<script>
+const WA = "https://wa.me/5491136272229?text=" + encodeURIComponent("¡Hola Gime! Vi el recetario de Gimefit y quiero asesoramiento personalizado 💜");
+["wa-hero","wa-cta","wa-fab"].forEach(id => document.getElementById(id).href = WA);
+
+const DATA = [
+ {id:"desayunos", name:"Desayunos", items:[
+  ["Tostadas de huevo y palta",["2 huevos","pan integral 60 g","palta 40 g","tomate 80 g"],"Revolver los huevos; tostar el pan y servir con palta pisada y tomate.",390,20],
+  ["Omelette de ricota y espinaca",["2 huevos","ricota magra 70 g","espinaca 60 g","aceite de oliva 5 g"],"Saltear la espinaca, agregar los huevos batidos y rellenar con ricota.",340,26],
+  ["Wrap de pollo matutino",["tortilla integral 60 g","pollo cocido 90 g","queso fresco 30 g","tomate 60 g"],"Calentar la tortilla, incorporar pollo, queso y tomate; dorar.",430,39],
+  ["Muffins de huevo y brócoli",["2 huevos","claras 100 g","brócoli 80 g","queso 25 g"],"Mezclar y hornear en moldes 18 minutos a 180 °C.",330,32],
+  ["Panqueques salados de avena",["avena 40 g","1 huevo","claras 100 g","ricota 50 g","espinaca 40 g"],"Licuar avena y huevos; cocinar los panqueques y rellenar.",360,29],
+  ["Tostado de atún",["pan integral 70 g","atún al natural escurrido 80 g","queso 25 g","tomate 50 g"],"Armar el tostado y dorar en sartén antiadherente.",385,34],
+  ["Revuelto de papa y huevo",["papa 150 g","2 huevos","claras 80 g","cebolla 40 g","aceite 5 g"],"Cocinar la papa en cubos; saltear la cebolla e integrar los huevos.",390,25],
+  ["Bruschettas de hummus y huevo",["pan integral 60 g","hummus 60 g","2 huevos","tomate 60 g"],"Tostar el pan, untar hummus y sumar huevo cocido.",420,23]
+ ]},
+ {id:"almuerzos", name:"Almuerzos", items:[
+  ["Bowl de pollo y arroz",["pollo cocido 140 g","arroz cocido 150 g","zucchini 100 g","zanahoria 80 g","aceite 5 g"],"Grillar el pollo, saltear las verduras y servir sobre el arroz.",540,49],
+  ["Zapallitos rellenos de carne",["zapallitos 250 g","carne picada magra 140 g","cebolla 60 g","queso 30 g","arroz cocido 80 g"],"Ahuecar los zapallitos; rellenar con carne y arroz; gratinar.",500,43],
+  ["Canelones de pollo y espinaca",["2 panqueques medianos 100 g","pollo 120 g","espinaca 100 g","salsa de tomate 100 g","queso 25 g"],"Rellenar, cubrir con salsa y gratinar 15 minutos.",530,48],
+  ["Albóndigas con puré de batata",["carne magra 150 g","batata 200 g","1 huevo pequeño","tomate triturado 100 g"],"Formar las albóndigas y cocinarlas en la salsa; servir con puré.",550,42],
+  ["Wok de pollo con fideos",["pollo 140 g","fideos de arroz cocidos 160 g","vegetales 180 g","aceite 5 g","salsa de soja 10 ml"],"Saltear pollo y vegetales; incorporar fideos y salsa.",510,46],
+  ["Pastel de papa liviano",["carne magra 140 g","papa 220 g","cebolla 60 g","leche 30 ml","queso 20 g"],"Cocinar carne y cebolla; cubrir con puré y gratinar.",560,42],
+  ["Milanesa al horno con ensalada",["pechuga de pollo 150 g","pan rallado 30 g","½ huevo para rebozar","papa 150 g","tomate 100 g"],"Empanar, hornear hasta cocción completa y servir con ensalada.",530,48],
+  ["Ensalada tibia de lentejas",["lentejas cocidas 180 g","2 huevos","calabaza 150 g","rúcula 40 g","aceite 5 g"],"Asar la calabaza, cocer los huevos y mezclar todo tibio.",510,29]
+ ]},
+ {id:"meriendas", name:"Meriendas", items:[
+  ["Waffles de queso y avena",["avena 40 g","1 huevo","claras 100 g","queso fresco 40 g"],"Procesar los ingredientes y cocinar en waflera o sartén.",360,30],
+  ["Sándwich de pollo y rúcula",["pan integral 70 g","pollo cocido 100 g","queso untable 25 g","rúcula 30 g"],"Untar el pan, sumar pollo y rúcula.",400,39],
+  ["Mini tortillas de papa",["papa 130 g","2 huevos","cebolla 40 g","aceite 5 g"],"Precocinar papa y cebolla; mezclar con el huevo y hornear en moldes.",340,17],
+  ["Rollitos de atún",["tortilla integral 60 g","atún al natural 100 g","queso untable 30 g","zanahoria 40 g"],"Untar la tortilla, rellenar, enrollar y cortar.",380,35],
+  ["Tostadas de ricota y tomate",["pan integral 70 g","ricota magra 100 g","tomate 80 g","semillas 10 g"],"Tostar y agregar ricota, tomate y semillas.",390,25],
+  ["Muffins de pollo y huevo",["pollo cocido 80 g","2 huevos","zucchini 70 g","queso 20 g"],"Mezclar, repartir en moldes y hornear 18–20 minutos.",350,39],
+  ["Quesadilla de espinaca",["tortilla integral 60 g","mozzarella 50 g","espinaca 70 g","1 huevo"],"Rellenar la tortilla y dorar de ambos lados; servir con huevo.",420,27]
+ ]},
+ {id:"cenas", name:"Cenas", items:[
+  ["Merluza con papas al horno",["merluza 180 g","papa 200 g","brócoli 150 g","aceite 10 g"],"Hornear las papas; agregar la merluza y cocinar hasta que esté hecha.",470,40],
+  ["Lasaña de zucchini y carne",["zucchini 250 g","carne magra 150 g","salsa de tomate 120 g","mozzarella 40 g"],"Alternar capas de zucchini, carne y salsa; gratinar.",480,46],
+  ["Fajitas de pollo",["pollo 140 g","2 tortillas integrales pequeñas 80 g","morrón y cebolla 160 g","palta 40 g"],"Saltear pollo y verduras; rellenar las tortillas con palta.",590,48],
+  ["Tarta de espinaca y ricota",["masa integral 80 g","espinaca 150 g","ricota 120 g","1 huevo","queso 20 g"],"Mezclar el relleno, disponer sobre la masa y hornear.",570,35],
+  ["Pollo al curry suave",["pollo 150 g","arroz cocido 150 g","yogur natural 80 g","zanahoria 80 g","curry suave"],"Cocinar el pollo con verduras, curry y yogur; acompañar con arroz.",510,52],
+  ["Hamburguesas de pollo y calabaza",["pollo picado 160 g","calabaza 220 g","avena 20 g","ensalada 100 g","aceite 5 g"],"Formar hamburguesas con pollo y avena; cocinar y acompañar con puré de calabaza.",460,43],
+  ["Morrones rellenos",["morrón 200 g","carne magra 130 g","arroz cocido 110 g","cebolla 50 g","queso 20 g"],"Rellenar los morrones con la mezcla cocida y gratinar al horno.",500,39]
+ ]}
+];
+
+const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const main = document.getElementById("recipes");
+main.innerHTML = DATA.map(c => `
+  <section class="cat" id="${c.id}" data-cat="${c.id}">
+    <div class="cat-head"><h2>${c.name}</h2><span class="cat-count">${c.items.length} recetas</span></div>
+    <div class="grid">${c.items.map((r,i)=>`
+      <article class="card">
+        <div class="card-top">
+          <div><div class="num">${String(i+1).padStart(2,"0")}</div><h3>${esc(r[0])}</h3></div>
+          <div class="macros"><span class="prot">${r[4]} g prot.</span><span class="kcal">${r[3]} kcal</span></div>
+        </div>
+        <div><p class="label">Ingredientes · 1 porción</p><ul class="ing">${r[1].map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
+        <div><p class="label">Preparación</p><p class="prep">${esc(r[2])}</p></div>
+      </article>`).join("")}</div>
+  </section>`).join("");
+
+const chips = document.getElementById("chips");
+const opts = [{id:"todas",name:"Todas"}, ...DATA];
+chips.innerHTML = opts.map(o=>`<button class="chip" id="chip-${o.id}" data-f="${o.id}" aria-pressed="${o.id==="todas"}">${o.name}</button>`).join("");
+chips.addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if(!b) return;
+  const f = b.dataset.f;
+  chips.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c===b));
+  main.querySelectorAll("section.cat").forEach(s => s.hidden = f!=="todas" && s.dataset.cat!==f);
+});
+</script>
+
+</body>
+</html>

@@ -33,6 +33,9 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return
   const url = new URL(req.url)
 
+  // El recetario es una página pública aparte: no se guarda como la app
+  if (url.pathname.startsWith('/recetario')) return
+
   // Páginas de la app: red primero; sin señal, la última versión guardada
   if (req.mode === 'navigate') return e.respondWith(redPrimero(req, APP, '/'))
 
