@@ -5,6 +5,10 @@
       "destination": "/recetario/index.html"
     },
     {
+      "source": "/recetario-dulce",
+      "destination": "/recetario-dulce/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }
