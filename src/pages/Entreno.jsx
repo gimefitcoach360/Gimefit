@@ -230,7 +230,7 @@ export default function Entreno() {
             <>
               <div style={{ fontFamily: 'var(--display)', fontSize: 48, lineHeight: 0.95 }}>¡Semana {t.dia.semana} completa! 💜</div>
               <div style={{ fontSize: 16, color: 'var(--violet-pale)', marginTop: 6 }}>
-                Hiciste todos los entrenamientos de la semana {t.dia.semana} de {FASES[t.dia.fase]}. Eso es constancia de verdad. ¡Gime está orgullosa!
+                Hiciste todos los entrenamientos de la semana {t.dia.semana} de {FASES[t.dia.fase]}. Eso es constancia de verdad.
               </div>
             </>
           ) : (
