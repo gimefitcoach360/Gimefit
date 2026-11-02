@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { CloudOff, RefreshCw } from 'lucide-react'
 import { useAuth } from '../auth'
 import { useCola } from '../lib/offline'
@@ -6,7 +7,15 @@ import { useCola } from '../lib/offline'
 export default function EstadoConexion() {
   const { user } = useAuth()
   const { online, pendientes } = useCola(user?.id)
-  if (online && !pendientes) return null
+  // Con señal, los envíos tardan menos de un segundo: la franja solo aparece si algo quedó trabado,
+  // así no se mueve la pantalla cada vez que la alumna tilda una serie
+  const [trabado, setTrabado] = useState(false)
+  useEffect(() => {
+    if (!online || !pendientes) { setTrabado(false); return }
+    const t = setTimeout(() => setTrabado(true), 5000)
+    return () => clearTimeout(t)
+  }, [online, pendientes])
+  if (online && (!pendientes || !trabado)) return null
   const n = pendientes === 1 ? '1 cambio' : `${pendientes} cambios`
   return (
     <div role="status" style={{

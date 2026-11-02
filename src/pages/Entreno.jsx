@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, LogOut, PlayCircle } from 'lucide-react'
+import { Check, LogOut, PlayCircle, Trophy } from 'lucide-react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth'
 import { FASES, SENSACIONES } from '../lib/constantes'
 import { Cargando, CheckBtn, Chip, DonePill, Header } from '../components/ui'
 import Avisos from '../components/Avisos'
 import TimerDescanso from '../components/TimerDescanso'
+import Confeti from '../components/Confeti'
 import { colaDe, encolar, enviarCola } from '../lib/offline'
 import { faseInicio } from '../lib/acceso'
 
 const clave = (ejId, n) => `${ejId}|${n}`
 const aNumero = v => (v === '' || v == null ? null : Number(String(v).replace(',', '.')))
 const aEntero = v => (v === '' || v == null ? null : parseInt(v, 10))
+const kgTxt = n => Number(n).toLocaleString('es-AR')
 const semanaPrograma = d => (d.fase - 1) * 4 + d.semana
 
 /** "8×12 · 8×12 · 10×10" con lo que hizo la vez anterior en ese ejercicio */
@@ -149,6 +151,35 @@ export default function Entreno() {
     if (nuevo.hecho) setDescanso({ segundos: ej.descanso_seg || 60, id: Date.now() })
   }
 
+  // Récords: ejercicios donde hoy levantó más kilos que en cualquier día anterior
+  async function buscarRecords() {
+    const hoyMax = {}
+    for (const ej of ejercicios) {
+      for (let n = 1; n <= ej.series; n++) {
+        const f = series[clave(ej.id, n)]
+        const kg = f?.hecho ? aNumero(f.peso_kg) : null
+        if (kg != null && kg > (hoyMax[ej.nombre] ?? 0)) hoyMax[ej.nombre] = kg
+      }
+    }
+    const nombres = Object.keys(hoyMax)
+    if (!nombres.length) return []
+    try {
+      const idsHoy = ejercicios.map(e => e.id)
+      const { data, error } = await supabase.from('registros_series')
+        .select('ejercicio_id, peso_kg, rutina_ejercicios!inner(nombre)')
+        .eq('alumna_id', user.id).eq('hecho', true).in('rutina_ejercicios.nombre', nombres)
+      if (error || !data) return []
+      const antes = {}
+      for (const r of data) {
+        if (idsHoy.includes(r.ejercicio_id) || r.peso_kg == null) continue
+        const n = r.rutina_ejercicios.nombre
+        antes[n] = Math.max(antes[n] ?? 0, Number(r.peso_kg))
+      }
+      // Solo cuenta como récord si ya lo había hecho antes con kilos
+      return nombres.filter(n => antes[n] > 0 && hoyMax[n] > antes[n]).map(n => ({ nombre: n, kg: hoyMax[n], antes: antes[n] }))
+    } catch { return [] }
+  }
+
   async function terminar() {
     setGuardando(true); setError('')
     // Todo lo cargado + el día terminado van a la cola; las series salen primero, así el mail a Gime va completo
@@ -160,11 +191,13 @@ export default function Entreno() {
     const { pendientes, error } = await enviarCola(user.id)
     if (error) { setGuardando(false); return setError('No se pudo terminar el día. Probá de nuevo.') }
 
+    const records = pendientes ? [] : await buscarRecords()
     const nuevosHechos = { ...hechos, [dia.id]: { dia_id: dia.id, sensacion } }
+    const semanaCompleta = dias.filter(x => x.fase === dia.fase && x.semana === dia.semana).every(x => nuevosHechos[x.id])
     const volumen = Object.values(series).filter(s => s.hecho)
       .reduce((a, s) => a + (aNumero(s.peso_kg) || 0) * (aEntero(s.reps) || 0), 0)
     setHechos(nuevosHechos)
-    setTerminado({ dia, seriesHechas, volumen, sensacion, siguiente: dias.find(x => !nuevosHechos[x.id]) || null, sinEnviar: pendientes > 0 })
+    setTerminado({ dia, seriesHechas, volumen, sensacion, siguiente: dias.find(x => !nuevosHechos[x.id]) || null, sinEnviar: pendientes > 0, records, semanaCompleta })
     setGuardando(false)
   }
 
@@ -188,13 +221,36 @@ export default function Entreno() {
     const t = terminado
     return (
       <div className="body" style={{ paddingTop: 48, gap: 22 }}>
+        {(t.semanaCompleta || t.records.length > 0) && <Confeti />}
         <div style={{ width: 72, height: 72, borderRadius: 22, background: 'var(--violet)', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Check size={36} strokeWidth={3} aria-hidden="true" />
+          {t.semanaCompleta ? <Trophy size={34} strokeWidth={2.5} aria-hidden="true" /> : <Check size={36} strokeWidth={3} aria-hidden="true" />}
         </div>
         <div>
-          <div style={{ fontFamily: 'var(--display)', fontSize: 48, lineHeight: 0.95 }}>¡Día {t.dia.dia_numero} completo!</div>
-          <div className="muted" style={{ fontSize: 16 }}>{t.dia.nombre}</div>
+          {t.semanaCompleta ? (
+            <>
+              <div style={{ fontFamily: 'var(--display)', fontSize: 48, lineHeight: 0.95 }}>¡Semana {t.dia.semana} completa! 💜</div>
+              <div style={{ fontSize: 16, color: 'var(--violet-pale)', marginTop: 6 }}>
+                Hiciste todos los entrenamientos de la semana {t.dia.semana} de {FASES[t.dia.fase]}. Eso es constancia de verdad. ¡Gime está orgullosa!
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontFamily: 'var(--display)', fontSize: 48, lineHeight: 0.95 }}>¡Día {t.dia.dia_numero} completo!</div>
+              <div className="muted" style={{ fontSize: 16 }}>{t.dia.nombre}</div>
+            </>
+          )}
         </div>
+        {t.records.length > 0 && (
+          <div className="card card--violet" style={{ gap: 8 }}>
+            <div className="kicker" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Trophy size={14} aria-hidden="true" />{t.records.length > 1 ? '¡Nuevos récords!' : '¡Nuevo récord!'}</div>
+            {t.records.map(r => (
+              <div key={r.nombre} style={{ fontSize: 16 }}>
+                <b>{r.nombre}</b>: {kgTxt(r.kg)} kg <span className="muted">(antes {kgTxt(r.antes)} kg)</span> 💪
+              </div>
+            ))}
+            <div className="muted" style={{ fontSize: 14 }}>Subiste el peso: tu cuerpo se está haciendo más fuerte.</div>
+          </div>
+        )}
         <div className="grid2">
           <div className="card" style={{ gap: 2 }}><span className="muted">Series hechas</span><span className="big">{t.seriesHechas}</span></div>
           <div className="card" style={{ gap: 2 }}><span className="muted">Volumen (kg × reps)</span><span className="big">{Math.round(t.volumen).toLocaleString('es-AR')}</span></div>
